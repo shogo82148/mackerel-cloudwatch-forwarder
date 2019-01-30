@@ -224,7 +224,7 @@ func (f *Forwarder) GetServiceMetric(ctx context.Context, def ServiceMetricDefin
 		ret = append(ret, &ServiceMetricValue{
 			Name:  def.Name,
 			Time:  p.Timestamp.Unix(),
-			Value: aws.Float64Value(p.Sum), // TODO: read from def.Stat
+			Value: getStatistics(p, def.Stat),
 		})
 	}
 	return ret, nil
@@ -239,6 +239,27 @@ func setStatistics(input *cloudwatch.GetMetricStatisticsInput, stat string) erro
 	// otherwise, maybe normal statistics.
 	input.Statistics = []cloudwatch.Statistic{cloudwatch.Statistic(stat)}
 	return nil
+}
+
+func getStatistics(p cloudwatch.Datapoint, stat string) float64 {
+	if strings.HasPrefix(stat, "p") {
+		// it looks like percentile statistics
+		return p.ExtendedStatistics[stat]
+	}
+	// otherwise, maybe normal statistics.
+	switch stat {
+	case "SampleCount":
+		return aws.Float64Value(p.SampleCount)
+	case "Average":
+		return aws.Float64Value(p.Average)
+	case "Sum":
+		return aws.Float64Value(p.Sum)
+	case "Minimum":
+		return aws.Float64Value(p.Minimum)
+	case "Maximum":
+		return aws.Float64Value(p.Maximum)
+	}
+	return 0
 }
 
 // ForwardMetricsEvent is an event of ForwardMetrics.
