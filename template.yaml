@@ -34,16 +34,12 @@ Resources:
       CodeUri: release/latest/mackerel-cloudwatch-forwarder.zip
       Policies:
         - AWSLambdaExecute # Managed Policy
-        - Version: '2012-10-17' # Policy Document
-          Statement:
-            - Effect: Allow
-              Action:
-                - ssm:GetParameter
-              Resource:
-                - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterName}"
+        - AmazonSSMReadOnlyAccess
+        - CloudWatchReadOnlyAccess
       Environment:
         Variables:
           MACKEREL_APIKEY_PARAMETER: !Ref ParameterName
+          MACKEREL_APIKEY_WITH_DECRYPT: 1
       Events:
         ForwardSchedule:
           Type: Schedule
