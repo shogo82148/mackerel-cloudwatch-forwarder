@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -176,31 +177,65 @@ func now(ctx context.Context) time.Time {
 func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEvent) error {
 	ctx = withNow(ctx)
 
+	// forward service metrics
+	var wg sync.WaitGroup
+	for _, def := range event.ServiceMetrics {
+		def := def
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := f.forwardServiceMetric(ctx, def); err != nil {
+				log.Println(err)
+			}
+		}()
+	}
+
+	// forward host metrics
+	for _, def := range event.HostMetrics {
+		def := def
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := f.forwardHostMetric(ctx, def); err != nil {
+				log.Println(err)
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	return nil
+}
+
+func (f *Forwarder) forwardServiceMetric(ctx context.Context, def ServiceMetricDefinition) error {
 	c, err := f.mackerel(ctx)
 	if err != nil {
 		return err
 	}
 
-	for _, def := range event.ServiceMetrics {
-		m, err := f.GetServiceMetric(ctx, def)
-		if err != nil {
-			return err
-		}
-		if err := c.PostServiceMetricValues(ctx, def.Service, m); err != nil {
-			return err
-		}
+	m, err := f.GetServiceMetric(ctx, def)
+	if err != nil {
+		return err
+	}
+	if err := c.PostServiceMetricValues(ctx, def.Service, m); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *Forwarder) forwardHostMetric(ctx context.Context, def HostMetricDefinition) error {
+	c, err := f.mackerel(ctx)
+	if err != nil {
+		return err
 	}
 
-	for _, def := range event.HostMetrics {
-		m, err := f.GetHostMetric(ctx, def)
-		if err != nil {
-			return err
-		}
-		if err := c.PostHostMetricValues(ctx, m); err != nil {
-			return err
-		}
+	m, err := f.GetHostMetric(ctx, def)
+	if err != nil {
+		return err
 	}
-
+	if err := c.PostHostMetricValues(ctx, m); err != nil {
+		return err
+	}
 	return nil
 }
 
