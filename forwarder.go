@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -162,44 +161,71 @@ func (f *Forwarder) cloudwatch() cloudwatchiface.CloudWatchAPI {
 	return f.svccloudwatch
 }
 
+type nowKey struct{}
+
+func withNow(ctx context.Context) context.Context {
+	return context.WithValue(ctx, nowKey{}, time.Now())
+}
+
+func now(ctx context.Context) time.Time {
+	return ctx.Value(nowKey{}).(time.Time)
+}
+
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
 func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEvent) error {
+	ctx = withNow(ctx)
+
 	c, err := f.mackerel(ctx)
 	if err != nil {
 		return err
 	}
-	now := time.Now()
-	prev := now.Add(-2 * time.Minute) // 2 min (to fetch at least 1 data-point)
 
 	for _, def := range event.ServiceMetrics {
-		template := &cloudwatch.GetMetricStatisticsInput{
-			Dimensions: []cloudwatch.Dimension{},
-			// TODO: support ExtendedStatistics
-			Statistics: []cloudwatch.Statistic{cloudwatch.Statistic(def.Stat)},
-			StartTime:  aws.Time(prev),
-			EndTime:    aws.Time(now),
-			Period:     aws.Int64(60),
-		}
-		input, err := ParseMetric(template, def.Metric)
+		m, err := f.GetServiceMetric(ctx, def)
 		if err != nil {
 			return err
 		}
-		req := f.cloudwatch().GetMetricStatisticsRequest(input)
-		req.SetContext(ctx)
-		resp, err := req.Send() // TODO: Send request in parallel
-		if err != nil {
+		if err := c.PostServiceMetricValues(ctx, def.Service, m); err != nil {
 			return err
-		}
-		for _, p := range resp.Datapoints {
-			log.Println(p)
-			c.PostServiceMetricValues(ctx, def.Service, []*ServiceMetricValue{{
-				Name:  def.Name,
-				Time:  p.Timestamp.Unix(),
-				Value: aws.Float64Value(p.Sum), // TODO: read from def.Stat
-			}})
 		}
 	}
 	return nil
+}
+
+// GetServiceMetric gets service metrics from CloudWatch.
+func (f *Forwarder) GetServiceMetric(ctx context.Context, def ServiceMetricDefinition) ([]*ServiceMetricValue, error) {
+	now := now(ctx)
+	prev := now.Add(-2 * time.Minute) // 2 min (to fetch at least 1 data-point)
+
+	template := &cloudwatch.GetMetricStatisticsInput{
+		Dimensions: []cloudwatch.Dimension{},
+		// TODO: support ExtendedStatistics
+		Statistics: []cloudwatch.Statistic{cloudwatch.Statistic(def.Stat)},
+		StartTime:  aws.Time(prev),
+		EndTime:    aws.Time(now),
+		Period:     aws.Int64(60),
+	}
+
+	input, err := ParseMetric(template, def.Metric)
+	if err != nil {
+		return nil, err
+	}
+	req := f.cloudwatch().GetMetricStatisticsRequest(input)
+	req.SetContext(ctx)
+	resp, err := req.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*ServiceMetricValue, 0, len(resp.Datapoints))
+	for _, p := range resp.Datapoints {
+		ret = append(ret, &ServiceMetricValue{
+			Name:  def.Name,
+			Time:  p.Timestamp.Unix(),
+			Value: aws.Float64Value(p.Sum), // TODO: read from def.Stat
+		})
+	}
+	return ret, nil
 }
 
 // ForwardMetricsEvent is an event of ForwardMetrics.
