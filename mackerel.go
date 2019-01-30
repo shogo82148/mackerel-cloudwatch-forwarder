@@ -3,6 +3,8 @@ package forwarder
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -148,36 +151,69 @@ func shouldRetry(err error) bool {
 	return false
 }
 
+// basic implementaion of exponential back off.
+type retrier struct {
+	delay time.Duration
+}
+
+var (
+	mu          sync.Mutex
+	retrierRand *rand.Rand
+)
+
+func init() {
+	var seed int64
+	if err := binary.Read(crand.Reader, binary.LittleEndian, &seed); err != nil {
+		seed = time.Now().UnixNano() // fall back to timestamp
+	}
+	retrierRand = rand.New(rand.NewSource(seed))
+}
+
+func (r *retrier) Next(ctx context.Context) bool {
+	if r.delay == 0 {
+		r.delay = 100 * time.Millisecond
+		return true
+	}
+
+	mu.Lock()
+	jitter := time.Duration(retrierRand.Float64() * float64(time.Second))
+	mu.Unlock()
+
+	timer := time.NewTimer(r.delay + jitter)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+		return false
+	}
+	r.delay *= 2
+	if r.delay >= 60*time.Second {
+		r.delay = 60 * time.Second
+	}
+
+	return true
+}
+
 // PostServiceMetricValues posts service metrics.
 func (c *MackerelClient) PostServiceMetricValues(ctx context.Context, serviceName string, values []*ServiceMetricValue) error {
-	tempDelay := 100 * time.Millisecond
-	for {
+	r := new(retrier)
+	for r.Next(ctx) {
 		err := c.postJSON(ctx, fmt.Sprintf("api/v0/services/%s/tsdb", serviceName), values)
 		if err == nil || !shouldRetry(err) {
 			return err
 		}
-		jitter := time.Duration(rand.Float64() * float64(time.Second))
-		time.Sleep(tempDelay + jitter)
-		tempDelay *= 2
-		if tempDelay > 60*time.Second {
-			tempDelay = 60 * time.Second
-		}
 	}
+	return ctx.Err()
 }
 
 // PostHostMetricValues posts host metrics.
 func (c *MackerelClient) PostHostMetricValues(ctx context.Context, values []*HostMetricValue) error {
-	tempDelay := 100 * time.Millisecond
-	for {
+	r := new(retrier)
+	for r.Next(ctx) {
 		err := c.postJSON(ctx, "api/v0/tsdb", values)
 		if err == nil || !shouldRetry(err) {
 			return err
 		}
-		jitter := time.Duration(rand.Float64() * float64(time.Second))
-		time.Sleep(tempDelay + jitter)
-		tempDelay *= 2
-		if tempDelay > 60*time.Second {
-			tempDelay = 60 * time.Second
-		}
 	}
+	return ctx.Err()
 }
