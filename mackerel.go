@@ -52,7 +52,7 @@ func (c *MackerelClient) PostServiceMetricValues(ctx context.Context, serviceNam
 	}
 	req = req.WithContext(ctx)
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-Api-Key", os.Getenv("MACKEREL_APIKEY")) // TODO: move api key to the MackerelClient
+	req.Header.Add("X-Api-Key", c.APIKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
