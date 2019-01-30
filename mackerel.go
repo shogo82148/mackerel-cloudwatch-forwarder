@@ -74,7 +74,7 @@ func (c *MackerelClient) PostHostMetricValues(ctx context.Context, values []*Hos
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v0/tsdb", defaultBaseURL), bytes.NewReader(data))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%sapi/v0/tsdb", defaultBaseURL), bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
