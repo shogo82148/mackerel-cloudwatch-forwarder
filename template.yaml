@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Forward the metrics in AWS CloudWatch to the Mackerel.
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: mackerel-cloudwatch-forwarder
+    Description: hForward the metrics in AWS CloudWatch to the Mackerel.
+    Author: Shogo Ichinose
+    SpdxLicenseId: MIT
+    LicenseUrl: LICENSE
+    ReadmeUrl: README.md
+    Labels: ['tests']
+    HomePageUrl: https://github.com/shogo82148/mackerel-cloudwatch-forwarder
+    SemanticVersion: 0.0.1
+    SourceCodeUrl: https://github.com/shogo82148/mackerel-cloudwatch-forwarder
+
+Parameters: 
+  ParameterName: 
+    Type: String
+    Description: Name of SSM Parameter Store Paramer for the Mackerel API Key.
+  ForwardSettings:
+    Type: String
+    Default: "{}"
+    Description: Metrics settings for forwarding
+
+Resources:
+  Proxy:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: mackerel-cloudwatch-forwarder
+      Runtime: go1.x
+      Timeout: 900
+      CodeUri: release/latest/mackerel-cloudwatch-forwarder.zip
+      Policies:
+        - AWSLambdaExecute # Managed Policy
+        - Version: '2012-10-17' # Policy Document
+          Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource:
+                - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ParameterName}"
+      Environment:
+        Variables:
+          MACKEREL_APIKEY_PARAMETER: !Ref ParameterName
+      Events:
+        ForwardSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 minute)
+            Input: !Ref ForwardSettings
