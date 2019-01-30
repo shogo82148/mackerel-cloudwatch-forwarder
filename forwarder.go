@@ -83,7 +83,6 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.SSMAPI) (string,
 		if err != nil {
 			return "", err
 		}
-		log.Println(resp)
 		return aws.StringValue(resp.Parameter.Value), nil
 	}
 	return "", errors.New("forwarder: api key for the mackerel is not found")
