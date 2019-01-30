@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -19,11 +20,73 @@ import (
 // Forwarder forwards metrics of AWS CloudWatch to Mackerel
 type Forwarder struct {
 	Config aws.Config
+
+	// APIKey is api key for the Mackerel.
+	// If it empty, the MACKEREL_APIKEY environment value is used.
+	// The priority is APIKey, APIKeyParameter, MACKEREL_APIKEY, and the MACKEREL_APIKEY_PARAMETER.
 	APIKey string
 
+	// APIKeyParameter is a name of AWS Systems Manager Parameter Store for the Mackerel api key.
+	// If it empty, the MACKEREL_APIKEY_PARAMETER environment value is used.
+	// The priority is APIKey, APIKeyParameter, MACKEREL_APIKEY, and the MACKEREL_APIKEY_PARAMETER.
+	APIKeyParameter string
+
 	mu            sync.Mutex
+	svcmackerel   *MackerelClient
 	svcssm        ssmiface.SSMAPI
 	svccloudwatch cloudwatchiface.CloudWatchAPI
+}
+
+func (f *Forwarder) mackerel(ctx context.Context) (*MackerelClient, error) {
+	svcssm := f.ssm()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.svcmackerel != nil {
+		return f.svcmackerel, nil
+	}
+	key, err := f.apiKey(ctx, svcssm)
+	if err != nil {
+		return nil, err
+	}
+	f.svcmackerel = &MackerelClient{
+		APIKey: key,
+	}
+	return f.svcmackerel, nil
+}
+
+func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.SSMAPI) (string, error) {
+	if f.APIKey != "" {
+		return f.APIKey, nil
+	}
+	if f.APIKeyParameter != "" {
+		req := svcssm.GetParameterRequest(&ssm.GetParameterInput{
+			Name:           aws.String(f.APIKeyParameter),
+			WithDecryption: aws.Bool(true),
+		})
+		req.SetContext(ctx)
+		resp, err := req.Send()
+		if err != nil {
+			return "", err
+		}
+		return aws.StringValue(resp.Parameter.Value), nil
+	}
+	if key := os.Getenv("MACKEREL_APIKEY"); key != "" {
+		return key, nil
+	}
+	if name := os.Getenv("MACKEREL_APIKEY_PARAMETER"); name != "" {
+		req := svcssm.GetParameterRequest(&ssm.GetParameterInput{
+			Name:           aws.String(name),
+			WithDecryption: aws.Bool(true),
+		})
+		req.SetContext(ctx)
+		resp, err := req.Send()
+		if err != nil {
+			return "", err
+		}
+		log.Println(resp)
+		return aws.StringValue(resp.Parameter.Value), nil
+	}
+	return "", errors.New("forwarder: api key for the mackerel is not found")
 }
 
 func (f *Forwarder) ssm() ssmiface.SSMAPI {
@@ -46,7 +109,10 @@ func (f *Forwarder) cloudwatch() cloudwatchiface.CloudWatchAPI {
 
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
 func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEvent) error {
-	c := &MackerelClient{}
+	c, err := f.mackerel(ctx)
+	if err != nil {
+		return err
+	}
 	now := time.Now()
 	prev := now.Add(-2 * time.Minute) // 2 min (to fetch at least 1 data-point)
 
