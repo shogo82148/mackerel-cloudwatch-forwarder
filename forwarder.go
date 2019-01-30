@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -176,31 +178,73 @@ func now(ctx context.Context) time.Time {
 func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEvent) error {
 	ctx = withNow(ctx)
 
+	var errCount int64
+
+	// forward service metrics
+	var wg sync.WaitGroup
+	for _, def := range event.ServiceMetrics {
+		def := def
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := f.forwardServiceMetric(ctx, def); err != nil {
+				log.Println(err)
+				atomic.AddInt64(&errCount, 1)
+			}
+		}()
+	}
+
+	// forward host metrics
+	for _, def := range event.HostMetrics {
+		def := def
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := f.forwardHostMetric(ctx, def); err != nil {
+				log.Println(err)
+				atomic.AddInt64(&errCount, 1)
+			}
+		}()
+	}
+
+	wg.Wait()
+	cnt := atomic.LoadInt64(&errCount)
+	log.Printf("%d error(s)", cnt)
+	if cnt != 0 {
+		return fmt.Errorf("forwarder: %d error(s)", cnt)
+	}
+	return nil
+}
+
+func (f *Forwarder) forwardServiceMetric(ctx context.Context, def ServiceMetricDefinition) error {
 	c, err := f.mackerel(ctx)
 	if err != nil {
 		return err
 	}
 
-	for _, def := range event.ServiceMetrics {
-		m, err := f.GetServiceMetric(ctx, def)
-		if err != nil {
-			return err
-		}
-		if err := c.PostServiceMetricValues(ctx, def.Service, m); err != nil {
-			return err
-		}
+	m, err := f.GetServiceMetric(ctx, def)
+	if err != nil {
+		return err
+	}
+	if err := c.PostServiceMetricValues(ctx, def.Service, m); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *Forwarder) forwardHostMetric(ctx context.Context, def HostMetricDefinition) error {
+	c, err := f.mackerel(ctx)
+	if err != nil {
+		return err
 	}
 
-	for _, def := range event.HostMetrics {
-		m, err := f.GetHostMetric(ctx, def)
-		if err != nil {
-			return err
-		}
-		if err := c.PostHostMetricValues(ctx, m); err != nil {
-			return err
-		}
+	m, err := f.GetHostMetric(ctx, def)
+	if err != nil {
+		return err
 	}
-
+	if err := c.PostHostMetricValues(ctx, m); err != nil {
+		return err
+	}
 	return nil
 }
 
