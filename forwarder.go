@@ -190,6 +190,17 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEven
 			return err
 		}
 	}
+
+	for _, def := range event.HostMetrics {
+		m, err := f.GetHostMetric(ctx, def)
+		if err != nil {
+			return err
+		}
+		if err := c.PostHostMetricValues(ctx, m); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -225,6 +236,44 @@ func (f *Forwarder) GetServiceMetric(ctx context.Context, def ServiceMetricDefin
 			Name:  def.Name,
 			Time:  p.Timestamp.Unix(),
 			Value: getStatistics(p, def.Stat),
+		})
+	}
+	return ret, nil
+}
+
+// GetHostMetric gets service metrics from CloudWatch.
+func (f *Forwarder) GetHostMetric(ctx context.Context, def HostMetricDefinition) ([]*HostMetricValue, error) {
+	now := now(ctx)
+	prev := now.Add(-2 * time.Minute) // 2 min (to fetch at least 1 data-point)
+
+	template := &cloudwatch.GetMetricStatisticsInput{
+		Dimensions: []cloudwatch.Dimension{},
+		StartTime:  aws.Time(prev),
+		EndTime:    aws.Time(now),
+		Period:     aws.Int64(60),
+	}
+	if err := setStatistics(template, def.Stat); err != nil {
+		return nil, err
+	}
+
+	input, err := ParseMetric(template, def.Metric)
+	if err != nil {
+		return nil, err
+	}
+	req := f.cloudwatch().GetMetricStatisticsRequest(input)
+	req.SetContext(ctx)
+	resp, err := req.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*HostMetricValue, 0, len(resp.Datapoints))
+	for _, p := range resp.Datapoints {
+		ret = append(ret, &HostMetricValue{
+			HostID: def.HostID,
+			Name:   def.Name,
+			Time:   p.Timestamp.Unix(),
+			Value:  getStatistics(p, def.Stat),
 		})
 	}
 	return ret, nil

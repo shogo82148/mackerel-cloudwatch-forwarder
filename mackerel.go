@@ -67,3 +67,31 @@ func (c *MackerelClient) PostServiceMetricValues(ctx context.Context, serviceNam
 
 	return nil
 }
+
+// PostHostMetricValues posts host metrics.
+func (c *MackerelClient) PostHostMetricValues(ctx context.Context, values []*HostMetricValue) error {
+	data, err := json.Marshal(values)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v0/tsdb", defaultBaseURL), bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req = req.WithContext(ctx)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-Api-Key", c.APIKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// TODO check the status code.
+	// TODO retry
+
+	io.Copy(os.Stderr, resp.Body)
+
+	return nil
+}
