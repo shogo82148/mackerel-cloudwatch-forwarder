@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -177,6 +178,8 @@ func now(ctx context.Context) time.Time {
 func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEvent) error {
 	ctx = withNow(ctx)
 
+	var errCount int64
+
 	// forward service metrics
 	var wg sync.WaitGroup
 	for _, def := range event.ServiceMetrics {
@@ -186,6 +189,7 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEven
 			defer wg.Done()
 			if err := f.forwardServiceMetric(ctx, def); err != nil {
 				log.Println(err)
+				atomic.AddInt64(&errCount, 1)
 			}
 		}()
 	}
@@ -198,12 +202,17 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEven
 			defer wg.Done()
 			if err := f.forwardHostMetric(ctx, def); err != nil {
 				log.Println(err)
+				atomic.AddInt64(&errCount, 1)
 			}
 		}()
 	}
 
 	wg.Wait()
-
+	cnt := atomic.LoadInt64(&errCount)
+	log.Printf("%d error(s)", cnt)
+	if cnt != 0 {
+		return fmt.Errorf("forwarder: %d error(s)", cnt)
+	}
 	return nil
 }
 
