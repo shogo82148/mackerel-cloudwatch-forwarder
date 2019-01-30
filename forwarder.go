@@ -247,6 +247,7 @@ func getStatistics(p cloudwatch.Datapoint, stat string) float64 {
 		return p.ExtendedStatistics[stat]
 	}
 	// otherwise, maybe normal statistics.
+	// See https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricStatistics.html
 	switch stat {
 	case "SampleCount":
 		return aws.Float64Value(p.SampleCount)
