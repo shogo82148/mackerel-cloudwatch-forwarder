@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 var defaultBaseURL *url.URL
@@ -85,6 +88,9 @@ func (c *MackerelClient) newRequest(ctx context.Context, method, path string, bo
 }
 
 func (c *MackerelClient) postJSON(ctx context.Context, path string, payload interface{}) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -132,12 +138,46 @@ func handleError(resp *http.Response) error {
 	}
 }
 
+func shouldRetry(err error) bool {
+	if err, ok := err.(Error); ok {
+		return err.StatusCode >= 500 || err.StatusCode == http.StatusTooManyRequests
+	}
+	if err, ok := err.(net.Error); ok {
+		return err.Temporary()
+	}
+	return false
+}
+
 // PostServiceMetricValues posts service metrics.
 func (c *MackerelClient) PostServiceMetricValues(ctx context.Context, serviceName string, values []*ServiceMetricValue) error {
-	return c.postJSON(ctx, fmt.Sprintf("api/v0/services/%s/tsdb", serviceName), values)
+	tempDelay := 100 * time.Millisecond
+	for {
+		err := c.postJSON(ctx, fmt.Sprintf("api/v0/services/%s/tsdb", serviceName), values)
+		if err == nil || !shouldRetry(err) {
+			return err
+		}
+		jitter := time.Duration(rand.Float64() * float64(time.Second))
+		time.Sleep(tempDelay + jitter)
+		tempDelay *= 2
+		if tempDelay > 60*time.Second {
+			tempDelay = 60 * time.Second
+		}
+	}
 }
 
 // PostHostMetricValues posts host metrics.
 func (c *MackerelClient) PostHostMetricValues(ctx context.Context, values []*HostMetricValue) error {
-	return c.postJSON(ctx, "api/v0/tsdb", values)
+	tempDelay := 100 * time.Millisecond
+	for {
+		err := c.postJSON(ctx, "api/v0/tsdb", values)
+		if err == nil || !shouldRetry(err) {
+			return err
+		}
+		jitter := time.Duration(rand.Float64() * float64(time.Second))
+		time.Sleep(tempDelay + jitter)
+		tempDelay *= 2
+		if tempDelay > 60*time.Second {
+			tempDelay = 60 * time.Second
+		}
+	}
 }
