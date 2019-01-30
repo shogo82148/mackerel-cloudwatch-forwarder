@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -199,11 +200,12 @@ func (f *Forwarder) GetServiceMetric(ctx context.Context, def ServiceMetricDefin
 
 	template := &cloudwatch.GetMetricStatisticsInput{
 		Dimensions: []cloudwatch.Dimension{},
-		// TODO: support ExtendedStatistics
-		Statistics: []cloudwatch.Statistic{cloudwatch.Statistic(def.Stat)},
 		StartTime:  aws.Time(prev),
 		EndTime:    aws.Time(now),
 		Period:     aws.Int64(60),
+	}
+	if err := setStatistics(template, def.Stat); err != nil {
+		return nil, err
 	}
 
 	input, err := ParseMetric(template, def.Metric)
@@ -226,6 +228,17 @@ func (f *Forwarder) GetServiceMetric(ctx context.Context, def ServiceMetricDefin
 		})
 	}
 	return ret, nil
+}
+
+func setStatistics(input *cloudwatch.GetMetricStatisticsInput, stat string) error {
+	if strings.HasPrefix(stat, "p") {
+		// it looks like percentile statistics
+		input.ExtendedStatistics = []string{stat} // XXX: need validations?
+		return nil
+	}
+	// otherwise, maybe normal statistics.
+	input.Statistics = []cloudwatch.Statistic{cloudwatch.Statistic(stat)}
+	return nil
 }
 
 // ForwardMetricsEvent is an event of ForwardMetrics.
