@@ -1,4 +1,4 @@
 package forwarder
 
 // Version is the version of mackerel-cloudwatch-forwarder
-const Version string = "0.0.1"
+const Version string = "0.0.2"
