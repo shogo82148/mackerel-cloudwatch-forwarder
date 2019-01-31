@@ -17,7 +17,7 @@ Metadata:
 
 Parameters: 
   ParameterName: 
-    Type: String
+    Type: AWS::SSM::Parameter::Name
     Description: Name of SSM Parameter Store Paramer for the Mackerel API Key.
   ForwardSettings:
     Type: String
