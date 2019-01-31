@@ -38,3 +38,14 @@ $(RELEASE_DIR)/mackerel-cloudwatch-forwarder.zip: $(RELEASE_DIR) $(ARTIFACTS_DIR
 
 $(LATEST_DIR)/mackerel-cloudwatch-forwarder.zip: $(LATEST_DIR) $(RELEASE_DIR)/mackerel-cloudwatch-forwarder.zip
 	cp $(RELEASE_DIR)/mackerel-cloudwatch-forwarder.zip $@
+
+.PHONY: release-sam
+
+release-sam: $(LATEST_DIR)/mackerel-cloudwatch-forwarder.zip template.yaml ## Release the application to AWS Serverless Application Repository
+	sam package \
+		--template-file template.yaml \
+		--output-template-file packaged.yaml \
+		--s3-bucket shogo82148-sam
+	sam publish \
+		--template packaged.yaml \
+		--region us-east-1
