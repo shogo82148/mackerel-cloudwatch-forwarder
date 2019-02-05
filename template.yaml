@@ -30,7 +30,7 @@ Resources:
     Properties:
       Handler: mackerel-cloudwatch-forwarder
       Runtime: go1.x
-      Timeout: 900
+      Timeout: 60
       CodeUri: release/latest/mackerel-cloudwatch-forwarder.zip
       Policies:
         - AWSLambdaExecute

@@ -176,6 +176,8 @@ func now(ctx context.Context) time.Time {
 
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
 func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEvent) error {
+	ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
+	defer cancel()
 	ctx = withNow(ctx)
 
 	var errCount int64
