@@ -28,6 +28,10 @@ Parameters:
     Default: warning
     AllowedValues: [panic, fatal, error, warn, warning, info, debug, trace]
     Description: log level(panic, fatal, error, warn, warning, info, debug, trace)
+  BaseUrl:
+    Type: String
+    Default: "https://api.mackerelio.com/"
+    Description: base url for the Mackerel API
 
 Resources:
   Forwarder:
@@ -52,6 +56,7 @@ Resources:
         Variables:
           MACKEREL_APIKEY_PARAMETER: !Ref ParameterName
           MACKEREL_APIKEY_WITH_DECRYPT: 1
+          MACKEREL_APIURL: !Ref BaseUrl
           FORWARD_LOG_LEVEL: !Ref LogLevel
       Events:
         ForwardSchedule:

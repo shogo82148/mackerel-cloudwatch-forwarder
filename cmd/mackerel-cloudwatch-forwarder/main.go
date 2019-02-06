@@ -32,6 +32,7 @@ func main() {
 		logrus.WithError(err).Error("fail to load aws config")
 	}
 	f := &forwarder.Forwarder{
+		APIURL: os.Getenv("MACKEREL_APIURL"),
 		Config: cfg,
 	}
 	lambda.Start(f.ForwardMetrics)

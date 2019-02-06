@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -25,6 +26,8 @@ import (
 // Forwarder forwards metrics of AWS CloudWatch to Mackerel
 type Forwarder struct {
 	Config aws.Config
+
+	APIURL string
 
 	// APIKey is api key for the Mackerel.
 	// If it empty, the MACKEREL_APIKEY environment value is used.
@@ -66,6 +69,13 @@ func (f *Forwarder) mackerel(ctx context.Context) (*MackerelClient, error) {
 	}
 	f.svcmackerel = &MackerelClient{
 		APIKey: key,
+	}
+	if f.APIURL != "" {
+		u, err := url.Parse(f.APIURL)
+		if err != nil {
+			return nil, err
+		}
+		f.svcmackerel.BaseURL = u
 	}
 	return f.svcmackerel, nil
 }
