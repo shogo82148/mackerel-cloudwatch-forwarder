@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -20,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/kmsiface"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/ssmiface"
+	"github.com/sirupsen/logrus"
 )
 
 // Forwarder forwards metrics of AWS CloudWatch to Mackerel
@@ -202,9 +202,14 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEven
 		ctx = withTime(ctx, now)
 		err := f.forwardMetrics(ctx, timestamp, event)
 		if err != nil {
-			log.Printf("metric[%s]: finished %v", timestamp, err)
+			logrus.WithFields(logrus.Fields{
+				"timestamp": timestamp,
+				"error":     err,
+			}).Error("fail to forward")
 		} else {
-			log.Printf("metric[%s]: finished", timestamp)
+			logrus.WithFields(logrus.Fields{
+				"timestamp": timestamp,
+			}).Info("success")
 		}
 		chfinished <- struct{}{}
 	}()
@@ -216,8 +221,14 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEven
 			if events == 0 {
 				return nil
 			}
+			logrus.WithFields(logrus.Fields{
+				"count": events,
+			}).Warn("there are some metrics in forwarding")
 		case <-ctx.Done():
-			log.Printf("metric[%s]: %v", timestamp, ctx.Err())
+			logrus.WithFields(logrus.Fields{
+				"timestamp": timestamp,
+				"error":     ctx.Err(),
+			}).Warn("forwarding metrics is timeout")
 			return nil
 		}
 	}
@@ -234,7 +245,11 @@ func (f *Forwarder) forwardMetrics(ctx context.Context, timestamp string, event 
 		go func() {
 			defer wg.Done()
 			if err := f.forwardServiceMetric(ctx, def); err != nil {
-				log.Printf("metric[%s]: %v", timestamp, err)
+				logrus.WithFields(logrus.Fields{
+					"timestamp": timestamp,
+					"name":      def.Name,
+					"error":     err,
+				}).Error("fail to forward service metric")
 				atomic.AddInt64(&errCount, 1)
 			}
 		}()
@@ -247,7 +262,12 @@ func (f *Forwarder) forwardMetrics(ctx context.Context, timestamp string, event 
 		go func() {
 			defer wg.Done()
 			if err := f.forwardHostMetric(ctx, def); err != nil {
-				log.Printf("metric[%s]: %v", timestamp, err)
+				logrus.WithFields(logrus.Fields{
+					"timestamp": timestamp,
+					"hostId":    def.HostID,
+					"name":      def.Name,
+					"error":     err,
+				}).Error("fail to forward host metric")
 				atomic.AddInt64(&errCount, 1)
 			}
 		}()
