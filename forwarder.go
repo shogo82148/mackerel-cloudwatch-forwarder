@@ -207,7 +207,7 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEven
 	atomic.AddInt64(&f.events, 1)
 	chfinished := f.chfinished()
 	go func() {
-		ctx, cancel := context.WithTimeout(ctx, 7*24*time.Hour)
+		ctx, cancel := context.WithTimeout(context.Background(), 7*24*time.Hour)
 		defer cancel()
 		ctx = withTime(ctx, now)
 		err := f.forwardMetrics(ctx, timestamp, event)
