@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -20,11 +20,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/kmsiface"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/ssmiface"
+	"github.com/sirupsen/logrus"
 )
 
 // Forwarder forwards metrics of AWS CloudWatch to Mackerel
 type Forwarder struct {
 	Config aws.Config
+
+	APIURL string
 
 	// APIKey is api key for the Mackerel.
 	// If it empty, the MACKEREL_APIKEY environment value is used.
@@ -41,7 +44,11 @@ type Forwarder struct {
 	// If not, the MACKEREL_APIKEY_WITH_DECRYPT environment value is used.
 	APIKeyWithDecrypt bool
 
+	// number of concurrent events, access atomically
+	events int64
+
 	mu            sync.Mutex
+	ch            chan struct{}
 	svcmackerel   *MackerelClient
 	svcssm        ssmiface.SSMAPI
 	svckms        kmsiface.KMSAPI
@@ -62,6 +69,13 @@ func (f *Forwarder) mackerel(ctx context.Context) (*MackerelClient, error) {
 	}
 	f.svcmackerel = &MackerelClient{
 		APIKey: key,
+	}
+	if f.APIURL != "" {
+		u, err := url.Parse(f.APIURL)
+		if err != nil {
+			return nil, err
+		}
+		f.svcmackerel.BaseURL = u
 	}
 	return f.svcmackerel, nil
 }
@@ -164,10 +178,19 @@ func (f *Forwarder) cloudwatch() cloudwatchiface.CloudWatchAPI {
 	return f.svccloudwatch
 }
 
+func (f *Forwarder) chfinished() chan struct{} {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.ch == nil {
+		f.ch = make(chan struct{}, 1)
+	}
+	return f.ch
+}
+
 type nowKey struct{}
 
-func withNow(ctx context.Context) context.Context {
-	return context.WithValue(ctx, nowKey{}, time.Now())
+func withTime(ctx context.Context, t time.Time) context.Context {
+	return context.WithValue(ctx, nowKey{}, t)
 }
 
 func now(ctx context.Context) time.Time {
@@ -176,8 +199,52 @@ func now(ctx context.Context) time.Time {
 
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
 func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEvent) error {
-	ctx = withNow(ctx)
+	now := time.Now()
+	timestamp := now.Format(time.RFC3339Nano)
+	ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
+	defer cancel()
 
+	atomic.AddInt64(&f.events, 1)
+	chfinished := f.chfinished()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 7*24*time.Hour)
+		defer cancel()
+		ctx = withTime(ctx, now)
+		err := f.forwardMetrics(ctx, timestamp, event)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"timestamp": timestamp,
+				"error":     err,
+			}).Error("fail to forward")
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"timestamp": timestamp,
+			}).Info("success")
+		}
+		chfinished <- struct{}{}
+	}()
+
+	for {
+		select {
+		case <-chfinished:
+			events := atomic.AddInt64(&f.events, -1)
+			if events == 0 {
+				return nil
+			}
+			logrus.WithFields(logrus.Fields{
+				"count": events,
+			}).Warn("there are some metrics in forwarding")
+		case <-ctx.Done():
+			logrus.WithFields(logrus.Fields{
+				"timestamp": timestamp,
+				"error":     ctx.Err(),
+			}).Warn("forwarding metrics is timeout")
+			return nil
+		}
+	}
+}
+
+func (f *Forwarder) forwardMetrics(ctx context.Context, timestamp string, event ForwardMetricsEvent) error {
 	var errCount int64
 
 	// forward service metrics
@@ -188,7 +255,11 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEven
 		go func() {
 			defer wg.Done()
 			if err := f.forwardServiceMetric(ctx, def); err != nil {
-				log.Println(err)
+				logrus.WithFields(logrus.Fields{
+					"timestamp": timestamp,
+					"name":      def.Name,
+					"error":     err,
+				}).Error("fail to forward service metric")
 				atomic.AddInt64(&errCount, 1)
 			}
 		}()
@@ -201,7 +272,12 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEven
 		go func() {
 			defer wg.Done()
 			if err := f.forwardHostMetric(ctx, def); err != nil {
-				log.Println(err)
+				logrus.WithFields(logrus.Fields{
+					"timestamp": timestamp,
+					"hostId":    def.HostID,
+					"name":      def.Name,
+					"error":     err,
+				}).Error("fail to forward host metric")
 				atomic.AddInt64(&errCount, 1)
 			}
 		}()
@@ -209,9 +285,8 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEven
 
 	wg.Wait()
 	cnt := atomic.LoadInt64(&errCount)
-	log.Printf("%d error(s)", cnt)
 	if cnt != 0 {
-		return fmt.Errorf("forwarder: %d error(s)", cnt)
+		return fmt.Errorf("%d error(s)", cnt)
 	}
 	return nil
 }

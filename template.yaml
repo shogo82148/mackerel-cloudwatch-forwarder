@@ -23,6 +23,15 @@ Parameters:
     Type: String
     Default: '{"service_metrics":[], "host_metrics":[]}'
     Description: Metrics settings for forwarding
+  LogLevel:
+    Type: String
+    Default: warning
+    AllowedValues: [panic, fatal, error, warn, warning, info, debug, trace]
+    Description: log level(panic, fatal, error, warn, warning, info, debug, trace)
+  BaseUrl:
+    Type: String
+    Default: "https://api.mackerelio.com/"
+    Description: base url for the Mackerel API
 
 Resources:
   Forwarder:
@@ -30,7 +39,7 @@ Resources:
     Properties:
       Handler: mackerel-cloudwatch-forwarder
       Runtime: go1.x
-      Timeout: 900
+      Timeout: 60
       CodeUri: release/latest/mackerel-cloudwatch-forwarder.zip
       Policies:
         - AWSLambdaExecute
@@ -47,6 +56,8 @@ Resources:
         Variables:
           MACKEREL_APIKEY_PARAMETER: !Ref ParameterName
           MACKEREL_APIKEY_WITH_DECRYPT: 1
+          MACKEREL_APIURL: !Ref BaseUrl
+          FORWARD_LOG_LEVEL: !Ref LogLevel
       Events:
         ForwardSchedule:
           Type: Schedule
