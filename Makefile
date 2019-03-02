@@ -9,9 +9,10 @@ LATEST_DIR=$(CURDIR)/release/latest
 SRC_FILES=$(shell find . -type f -name '*.go')
 GO111MODULE=on
 
-.PHONY: all clean test
+.PHONY: all clean build test
 
 all: $(LATEST_DIR)/mackerel-cloudwatch-forwarder.zip ## Build all binaries
+build: $(ARTIFACTS_DIR)/mackerel-cloudwatch-forwarder ## Build executable binary
 
 clean: ## Remove built files.
 	rm -rf $(CURDIR)/artifacts
