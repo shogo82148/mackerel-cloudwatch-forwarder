@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"log"
 	"net/url"
 	"os"
 	"sync"
@@ -17,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/kmsiface"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/ssmiface"
+	"github.com/sirupsen/logrus"
 )
 
 // Forwarder forwards metrics of AWS CloudWatch to Mackerel
@@ -211,14 +211,15 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, query []cloudwatch.Metri
 		serviceMetrics: f.pendingServiceMetrics,
 		hostMetrics:    f.pendingHostMetrics,
 	}
-	if err := fctx.getMetricsData(query); err != nil {
-		return err
-	}
+
+	err = fctx.getMetricsData(query)
+	// note: do not check error here.
+	// because we need to publish pending metrics.
+
 	fctx.publishMetric()
 	f.pendingServiceMetrics = fctx.failedServiceMetrics
 	f.pendingHostMetrics = fctx.failedHostMetrics
-
-	return nil
+	return err
 }
 
 type serviceMetricsType map[string][]ServiceMetricValue
@@ -313,13 +314,23 @@ func (fctx *forwardContext) publishMetric() {
 			defer wg.Done()
 			err := fctx.mackerel.PostServiceMetricValues(fctx, service, metrics)
 			if err != nil {
-				log.Println("failed to post service metrics", err)
+				logrus.WithFields(logrus.Fields{
+					"error":   err.Error(),
+					"service": service,
+				}).Warn("failed to post service metrics, will retry in next minutes")
+
+				// save metrics to retry
 				fctx.mu.Lock()
 				defer fctx.mu.Unlock()
 				if fctx.failedServiceMetrics == nil {
 					fctx.failedServiceMetrics = make(serviceMetricsType)
 				}
 				fctx.failedServiceMetrics[service] = append(fctx.failedServiceMetrics[service], metrics...)
+			} else {
+				logrus.WithFields(logrus.Fields{
+					"service": service,
+					"count":   len(metrics),
+				}).Info("succeed to post service metrics")
 			}
 		}()
 	}
@@ -330,10 +341,18 @@ func (fctx *forwardContext) publishMetric() {
 		defer wg.Done()
 		err := fctx.mackerel.PostHostMetricValues(fctx, []HostMetricValue(fctx.hostMetrics))
 		if err != nil {
-			log.Println("failed to post host metrics", err)
+			logrus.WithFields(logrus.Fields{
+				"error": err.Error(),
+			}).Warn("failed to post host metrics, will retry in next minutes")
+
+			// save metrics to retry
 			fctx.mu.Lock()
 			defer fctx.mu.Unlock()
 			fctx.failedHostMetrics = fctx.hostMetrics
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"count": len(fctx.hostMetrics),
+			}).Info("succeed to post host metrics")
 		}
 	}()
 
