@@ -202,6 +202,12 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, query []cloudwatch.Metri
 	f.muPending.Lock()
 	defer f.muPending.Unlock()
 
+	if cnt := f.pendingHostMetrics.Drop(now.Add(-6 * time.Hour)); cnt > 0 {
+		logrus.WithFields(logrus.Fields{
+			"count": cnt,
+		}).Warn("drop host metrics because of timeout")
+	}
+
 	fctx := &forwardContext{
 		Context:        ctx,
 		forwarder:      f,
@@ -241,6 +247,31 @@ func (m *serviceMetricsType) Append(service string, v ServiceMetricValue) {
 	(*m)[service] = append(metrics, v)
 }
 
+func (m *serviceMetricsType) Drop(t time.Time) int {
+	if len(*m) == 0 {
+		return 0
+	}
+	var cnt int
+	unix := t.Unix()
+	for service, metrics := range *m {
+		// https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
+		mm := metrics[:0]
+		for _, v := range metrics {
+			if v.Time >= unix {
+				mm = append(mm, v)
+			} else {
+				cnt++
+			}
+		}
+		if len(mm) > 0 {
+			(*m)[service] = mm
+		} else {
+			delete(*m, service)
+		}
+	}
+	return cnt
+}
+
 type hostMetricsType []HostMetricValue
 
 func (m *hostMetricsType) Append(v HostMetricValue) {
@@ -254,6 +285,26 @@ func (m *hostMetricsType) Append(v HostMetricValue) {
 
 	// append the new value.
 	*m = append(*m, v)
+}
+
+func (m *hostMetricsType) Drop(t time.Time) int {
+	if len(*m) == 0 {
+		return 0
+	}
+	var cnt int
+	unix := t.Unix()
+
+	// https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
+	mm := (*m)[:0]
+	for _, v := range *m {
+		if v.Time >= unix {
+			mm = append(mm, v)
+		} else {
+			cnt++
+		}
+	}
+	*m = mm
+	return cnt
 }
 
 // getMetricsData gets metrics data from CloudWatch Metrics.
