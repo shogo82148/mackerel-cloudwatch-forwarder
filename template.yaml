@@ -42,7 +42,6 @@ Resources:
       Timeout: 60
       CodeUri: release/latest/mackerel-cloudwatch-forwarder.zip
       Policies:
-        - AWSLambdaExecute
         - CloudWatchReadOnlyAccess
         - Version: '2012-10-17'
           Statement:
