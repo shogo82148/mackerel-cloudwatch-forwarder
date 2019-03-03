@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"log"
 	"net/url"
 	"os"
 	"sync"
@@ -40,11 +39,7 @@ type Forwarder struct {
 	// If not, the MACKEREL_APIKEY_WITH_DECRYPT environment value is used.
 	APIKeyWithDecrypt bool
 
-	// number of concurrent events, access atomically
-	events int64
-
 	mu            sync.Mutex
-	ch            chan struct{}
 	svcmackerel   *MackerelClient
 	svcssm        ssmiface.SSMAPI
 	svckms        kmsiface.KMSAPI
@@ -174,23 +169,14 @@ func (f *Forwarder) cloudwatch() cloudwatchiface.CloudWatchAPI {
 	return f.svccloudwatch
 }
 
-func (f *Forwarder) chfinished() chan struct{} {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.ch == nil {
-		f.ch = make(chan struct{}, 1)
-	}
-	return f.ch
-}
-
-type nowKey struct{}
-
-func withTime(ctx context.Context, t time.Time) context.Context {
-	return context.WithValue(ctx, nowKey{}, t)
-}
-
-func now(ctx context.Context) time.Time {
-	return ctx.Value(nowKey{}).(time.Time)
+type forwardContext struct {
+	context.Context
+	forwarder      *Forwarder
+	mackerel       *MackerelClient
+	start          time.Time
+	end            time.Time
+	serviceMetrics serviceMetricsType
+	hostMetrics    hostMetricsType
 }
 
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
@@ -204,65 +190,105 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, query []cloudwatch.Metri
 		return err
 	}
 
-	svc := f.cloudwatch()
+	fctx := &forwardContext{
+		Context:   ctx,
+		forwarder: f,
+		mackerel:  client,
+		start:     now.Add(-3 * time.Minute),
+		end:       now,
+	}
+	if err := fctx.getMetricsData(query); err != nil {
+		return err
+	}
+	fctx.publishMetric()
+
+	return nil
+}
+
+type serviceMetricsType map[string][]ServiceMetricValue
+
+func (m *serviceMetricsType) Append(service string, v ServiceMetricValue) {
+	if *m == nil {
+		*m = make(serviceMetricsType)
+	}
+	metrics := (*m)[service]
+	for i := range metrics {
+		if metrics[i].Name == v.Name && metrics[i].Time == v.Time {
+			// overwrite the old value.
+			metrics[i] = v
+			return
+		}
+	}
+
+	// append the new value.
+	(*m)[service] = append(metrics, v)
+}
+
+type hostMetricsType []HostMetricValue
+
+func (m *hostMetricsType) Append(v HostMetricValue) {
+	for i := range *m {
+		if (*m)[i].HostID == v.HostID && (*m)[i].Name == v.Name && (*m)[i].Time == v.Time {
+			// overwrite the old value.
+			(*m)[i] = v
+			return
+		}
+	}
+
+	// append the new value.
+	*m = append(*m, v)
+}
+
+// getMetricsData gets metrics data from CloudWatch Metrics.
+func (fctx *forwardContext) getMetricsData(query []cloudwatch.MetricDataQuery) error {
+	svc := fctx.forwarder.cloudwatch()
 	in := &cloudwatch.GetMetricDataInput{
-		StartTime:         aws.Time(now.Add(-3 * time.Minute)),
-		EndTime:           aws.Time(now),
+		StartTime:         aws.Time(fctx.start),
+		EndTime:           aws.Time(fctx.end),
 		MetricDataQueries: query,
-		MaxDatapoints:     aws.Int64(1),
 	}
 	for {
-		log.Println(in)
 		req := svc.GetMetricDataRequest(in)
-		req.SetContext(ctx)
+		req.SetContext(fctx)
 		page, err := req.Send()
 		if err != nil {
 			return err
 		}
-		log.Println(page)
 		for _, result := range page.MetricDataResults {
 			label, err := ParseLabel(aws.StringValue(result.Label))
 			if err != nil {
-				log.Println(err)
-				continue
+				return err
 			}
 			for i := range result.Timestamps {
 				t := result.Timestamps[i]
 				v := result.Values[i]
 				if label.Service != "" {
-					err := client.PostServiceMetricValues(ctx, label.Service, []*ServiceMetricValue{
-						{
-							Name:  label.MetricName,
-							Time:  t.Unix(),
-							Value: v,
-						},
+					fctx.serviceMetrics.Append(label.Service, ServiceMetricValue{
+						Name:  label.MetricName,
+						Time:  t.Unix(),
+						Value: v,
 					})
-					if err != nil {
-						log.Println(err)
-						continue
-					}
 				} else {
-					err := client.PostHostMetricValues(ctx, []*HostMetricValue{
-						{
-							HostID: label.HostID,
-							Name:   label.MetricName,
-							Time:   t.Unix(),
-							Value:  v,
-						},
+					fctx.hostMetrics.Append(HostMetricValue{
+						HostID: label.HostID,
+						Name:   label.MetricName,
+						Time:   t.Unix(),
+						Value:  v,
 					})
-					if err != nil {
-						log.Println(err)
-						continue
-					}
 				}
 			}
 		}
-		log.Println(page.NextToken)
 		if page.NextToken == nil {
 			break
 		}
 		in.NextToken = page.NextToken
 	}
-
 	return nil
+}
+
+func (fctx *forwardContext) publishMetric() {
+	for service, metrics := range fctx.serviceMetrics {
+		fctx.mackerel.PostServiceMetricValues(fctx, service, metrics)
+	}
+	fctx.mackerel.PostHostMetricValues(fctx, []HostMetricValue(fctx.hostMetrics))
 }
