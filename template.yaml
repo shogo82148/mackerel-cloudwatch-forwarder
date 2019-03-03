@@ -21,7 +21,7 @@ Parameters:
     Description: Name of SSM Parameter Store Paramer for the Mackerel API Key.
   ForwardSettings:
     Type: String
-    Default: '{"service_metrics":[], "host_metrics":[]}'
+    Default: '[]'
     Description: Metrics settings for forwarding
   LogLevel:
     Type: String
