@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"log"
 	"net/url"
 	"os"
 	"sync"
@@ -44,6 +45,10 @@ type Forwarder struct {
 	svcssm        ssmiface.SSMAPI
 	svckms        kmsiface.KMSAPI
 	svccloudwatch cloudwatchiface.CloudWatchAPI
+
+	muPending             sync.Mutex
+	pendingServiceMetrics serviceMetricsType
+	pendingHostMetrics    hostMetricsType
 }
 
 func (f *Forwarder) mackerel(ctx context.Context) (*MackerelClient, error) {
@@ -177,6 +182,10 @@ type forwardContext struct {
 	end            time.Time
 	serviceMetrics serviceMetricsType
 	hostMetrics    hostMetricsType
+
+	mu                   sync.Mutex
+	failedServiceMetrics serviceMetricsType
+	failedHostMetrics    hostMetricsType
 }
 
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
@@ -190,17 +199,24 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, query []cloudwatch.Metri
 		return err
 	}
 
+	f.muPending.Lock()
+	defer f.muPending.Unlock()
+
 	fctx := &forwardContext{
-		Context:   ctx,
-		forwarder: f,
-		mackerel:  client,
-		start:     now.Add(-3 * time.Minute),
-		end:       now,
+		Context:        ctx,
+		forwarder:      f,
+		mackerel:       client,
+		start:          now.Add(-3 * time.Minute),
+		end:            now,
+		serviceMetrics: f.pendingServiceMetrics,
+		hostMetrics:    f.pendingHostMetrics,
 	}
 	if err := fctx.getMetricsData(query); err != nil {
 		return err
 	}
 	fctx.publishMetric()
+	f.pendingServiceMetrics = fctx.failedServiceMetrics
+	f.pendingHostMetrics = fctx.failedHostMetrics
 
 	return nil
 }
@@ -287,8 +303,39 @@ func (fctx *forwardContext) getMetricsData(query []cloudwatch.MetricDataQuery) e
 }
 
 func (fctx *forwardContext) publishMetric() {
+	var wg sync.WaitGroup
+
+	// publush service metrics
 	for service, metrics := range fctx.serviceMetrics {
-		fctx.mackerel.PostServiceMetricValues(fctx, service, metrics)
+		service, metrics := service, metrics
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := fctx.mackerel.PostServiceMetricValues(fctx, service, metrics)
+			if err != nil {
+				log.Println("failed to post service metrics", err)
+				fctx.mu.Lock()
+				defer fctx.mu.Unlock()
+				if fctx.failedServiceMetrics == nil {
+					fctx.failedServiceMetrics = make(serviceMetricsType)
+				}
+				fctx.failedServiceMetrics[service] = append(fctx.failedServiceMetrics[service], metrics...)
+			}
+		}()
 	}
-	fctx.mackerel.PostHostMetricValues(fctx, []HostMetricValue(fctx.hostMetrics))
+
+	// publish host metrics
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := fctx.mackerel.PostHostMetricValues(fctx, []HostMetricValue(fctx.hostMetrics))
+		if err != nil {
+			log.Println("failed to post host metrics", err)
+			fctx.mu.Lock()
+			defer fctx.mu.Unlock()
+			fctx.failedHostMetrics = fctx.hostMetrics
+		}
+	}()
+
+	wg.Wait()
 }

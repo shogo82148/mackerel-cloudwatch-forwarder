@@ -196,6 +196,10 @@ func (r *retrier) Next(ctx context.Context) bool {
 
 // PostServiceMetricValues posts service metrics.
 func (c *MackerelClient) PostServiceMetricValues(ctx context.Context, serviceName string, values []ServiceMetricValue) error {
+	if len(values) == 0 {
+		return nil
+	}
+
 	r := new(retrier)
 	for r.Next(ctx) {
 		err := c.postJSON(ctx, fmt.Sprintf("api/v0/services/%s/tsdb", serviceName), values)
@@ -208,6 +212,10 @@ func (c *MackerelClient) PostServiceMetricValues(ctx context.Context, serviceNam
 
 // PostHostMetricValues posts host metrics.
 func (c *MackerelClient) PostHostMetricValues(ctx context.Context, values []HostMetricValue) error {
+	if len(values) == 0 {
+		return nil
+	}
+
 	r := new(retrier)
 	for r.Next(ctx) {
 		err := c.postJSON(ctx, "api/v0/tsdb", values)
