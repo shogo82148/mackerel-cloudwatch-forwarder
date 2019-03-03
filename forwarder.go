@@ -3,14 +3,11 @@ package forwarder
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"fmt"
+	"log"
 	"net/url"
 	"os"
-	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -20,7 +17,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/kmsiface"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/ssmiface"
-	"github.com/sirupsen/logrus"
 )
 
 // Forwarder forwards metrics of AWS CloudWatch to Mackerel
@@ -198,323 +194,75 @@ func now(ctx context.Context) time.Time {
 }
 
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
-func (f *Forwarder) ForwardMetrics(ctx context.Context, event ForwardMetricsEvent) error {
+func (f *Forwarder) ForwardMetrics(ctx context.Context, query []cloudwatch.MetricDataQuery) error {
 	now := time.Now()
-	timestamp := now.Format(time.RFC3339Nano)
 	ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
 	defer cancel()
 
-	atomic.AddInt64(&f.events, 1)
-	chfinished := f.chfinished()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 7*24*time.Hour)
-		defer cancel()
-		ctx = withTime(ctx, now)
-		err := f.forwardMetrics(ctx, timestamp, event)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"timestamp": timestamp,
-				"error":     err,
-			}).Error("fail to forward")
-		} else {
-			logrus.WithFields(logrus.Fields{
-				"timestamp": timestamp,
-			}).Info("success")
-		}
-		chfinished <- struct{}{}
-	}()
+	client, err := f.mackerel(ctx)
+	if err != nil {
+		return err
+	}
 
+	svc := f.cloudwatch()
+	in := &cloudwatch.GetMetricDataInput{
+		StartTime:         aws.Time(now.Add(-3 * time.Minute)),
+		EndTime:           aws.Time(now),
+		MetricDataQueries: query,
+		MaxDatapoints:     aws.Int64(1),
+	}
 	for {
-		select {
-		case <-chfinished:
-			events := atomic.AddInt64(&f.events, -1)
-			if events == 0 {
-				return nil
+		log.Println(in)
+		req := svc.GetMetricDataRequest(in)
+		req.SetContext(ctx)
+		page, err := req.Send()
+		if err != nil {
+			return err
+		}
+		log.Println(page)
+		for _, result := range page.MetricDataResults {
+			label, err := ParseLabel(aws.StringValue(result.Label))
+			if err != nil {
+				log.Println(err)
+				continue
 			}
-			logrus.WithFields(logrus.Fields{
-				"count": events,
-			}).Warn("there are some metrics in forwarding")
-		case <-ctx.Done():
-			logrus.WithFields(logrus.Fields{
-				"timestamp": timestamp,
-				"error":     ctx.Err(),
-			}).Warn("forwarding metrics is timeout")
-			return nil
-		}
-	}
-}
-
-func (f *Forwarder) forwardMetrics(ctx context.Context, timestamp string, event ForwardMetricsEvent) error {
-	var errCount int64
-
-	// forward service metrics
-	var wg sync.WaitGroup
-	for _, def := range event.ServiceMetrics {
-		def := def
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := f.forwardServiceMetric(ctx, def); err != nil {
-				logrus.WithFields(logrus.Fields{
-					"timestamp": timestamp,
-					"name":      def.Name,
-					"error":     err,
-				}).Error("fail to forward service metric")
-				atomic.AddInt64(&errCount, 1)
+			for i := range result.Timestamps {
+				t := result.Timestamps[i]
+				v := result.Values[i]
+				if label.Service != "" {
+					err := client.PostServiceMetricValues(ctx, label.Service, []*ServiceMetricValue{
+						{
+							Name:  label.MetricName,
+							Time:  t.Unix(),
+							Value: v,
+						},
+					})
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+				} else {
+					err := client.PostHostMetricValues(ctx, []*HostMetricValue{
+						{
+							HostID: label.HostID,
+							Name:   label.MetricName,
+							Time:   t.Unix(),
+							Value:  v,
+						},
+					})
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+				}
 			}
-		}()
+		}
+		log.Println(page.NextToken)
+		if page.NextToken == nil {
+			break
+		}
+		in.NextToken = page.NextToken
 	}
 
-	// forward host metrics
-	for _, def := range event.HostMetrics {
-		def := def
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := f.forwardHostMetric(ctx, def); err != nil {
-				logrus.WithFields(logrus.Fields{
-					"timestamp": timestamp,
-					"hostId":    def.HostID,
-					"name":      def.Name,
-					"error":     err,
-				}).Error("fail to forward host metric")
-				atomic.AddInt64(&errCount, 1)
-			}
-		}()
-	}
-
-	wg.Wait()
-	cnt := atomic.LoadInt64(&errCount)
-	if cnt != 0 {
-		return fmt.Errorf("%d error(s)", cnt)
-	}
 	return nil
-}
-
-func (f *Forwarder) forwardServiceMetric(ctx context.Context, def ServiceMetricDefinition) error {
-	c, err := f.mackerel(ctx)
-	if err != nil {
-		return err
-	}
-
-	m, err := f.GetServiceMetric(ctx, def)
-	if err != nil {
-		return err
-	}
-	if err := c.PostServiceMetricValues(ctx, def.Service, m); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (f *Forwarder) forwardHostMetric(ctx context.Context, def HostMetricDefinition) error {
-	c, err := f.mackerel(ctx)
-	if err != nil {
-		return err
-	}
-
-	m, err := f.GetHostMetric(ctx, def)
-	if err != nil {
-		return err
-	}
-	if err := c.PostHostMetricValues(ctx, m); err != nil {
-		return err
-	}
-	return nil
-}
-
-// GetServiceMetric gets service metrics from CloudWatch.
-func (f *Forwarder) GetServiceMetric(ctx context.Context, def ServiceMetricDefinition) ([]*ServiceMetricValue, error) {
-	now := now(ctx)
-	prev := now.Add(-2 * time.Minute) // 2 min (to fetch at least 1 data-point)
-
-	template := &cloudwatch.GetMetricStatisticsInput{
-		Dimensions: []cloudwatch.Dimension{},
-		StartTime:  aws.Time(prev),
-		EndTime:    aws.Time(now),
-		Period:     aws.Int64(60),
-	}
-	if err := setStatistics(template, def.Stat); err != nil {
-		return nil, err
-	}
-
-	input, err := ParseMetric(template, def.Metric)
-	if err != nil {
-		return nil, err
-	}
-	req := f.cloudwatch().GetMetricStatisticsRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	ret := make([]*ServiceMetricValue, 0, len(resp.Datapoints))
-	for _, p := range resp.Datapoints {
-		ret = append(ret, &ServiceMetricValue{
-			Name:  def.Name,
-			Time:  p.Timestamp.Unix(),
-			Value: getStatistics(p, def.Stat),
-		})
-	}
-	return ret, nil
-}
-
-// GetHostMetric gets service metrics from CloudWatch.
-func (f *Forwarder) GetHostMetric(ctx context.Context, def HostMetricDefinition) ([]*HostMetricValue, error) {
-	now := now(ctx)
-	prev := now.Add(-2 * time.Minute) // 2 min (to fetch at least 1 data-point)
-
-	template := &cloudwatch.GetMetricStatisticsInput{
-		Dimensions: []cloudwatch.Dimension{},
-		StartTime:  aws.Time(prev),
-		EndTime:    aws.Time(now),
-		Period:     aws.Int64(60),
-	}
-	if err := setStatistics(template, def.Stat); err != nil {
-		return nil, err
-	}
-
-	input, err := ParseMetric(template, def.Metric)
-	if err != nil {
-		return nil, err
-	}
-	req := f.cloudwatch().GetMetricStatisticsRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	ret := make([]*HostMetricValue, 0, len(resp.Datapoints))
-	for _, p := range resp.Datapoints {
-		ret = append(ret, &HostMetricValue{
-			HostID: def.HostID,
-			Name:   def.Name,
-			Time:   p.Timestamp.Unix(),
-			Value:  getStatistics(p, def.Stat),
-		})
-	}
-	return ret, nil
-}
-
-func setStatistics(input *cloudwatch.GetMetricStatisticsInput, stat string) error {
-	if strings.HasPrefix(stat, "p") {
-		// it looks like percentile statistics
-		input.ExtendedStatistics = []string{stat} // XXX: need validations?
-		return nil
-	}
-	// otherwise, maybe normal statistics.
-	input.Statistics = []cloudwatch.Statistic{cloudwatch.Statistic(stat)}
-	return nil
-}
-
-func getStatistics(p cloudwatch.Datapoint, stat string) float64 {
-	if strings.HasPrefix(stat, "p") {
-		// it looks like percentile statistics
-		return p.ExtendedStatistics[stat]
-	}
-	// otherwise, maybe normal statistics.
-	// See https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricStatistics.html
-	switch stat {
-	case "SampleCount":
-		return aws.Float64Value(p.SampleCount)
-	case "Average":
-		return aws.Float64Value(p.Average)
-	case "Sum":
-		return aws.Float64Value(p.Sum)
-	case "Minimum":
-		return aws.Float64Value(p.Minimum)
-	case "Maximum":
-		return aws.Float64Value(p.Maximum)
-	}
-	return 0
-}
-
-// ForwardMetricsEvent is an event of ForwardMetrics.
-type ForwardMetricsEvent struct {
-	ServiceMetrics []ServiceMetricDefinition `json:"service_metrics"`
-	HostMetrics    []HostMetricDefinition    `json:"host_metrics"`
-}
-
-// ServiceMetricDefinition is a definition for converting a metric of AWS CloudWatch to Mackerel's Service Metrics.
-// https://mackerel.io/api-docs/entry/service-metrics
-type ServiceMetricDefinition struct {
-	Service string      `json:"service"`
-	Name    string      `json:"name"`
-	Metric  interface{} `json:"metric"`
-	Stat    string      `json:"stat"`
-}
-
-// HostMetricDefinition is a definition for converting a metric of AWS CloudWatch to Mackerel's Host Metrics.
-// https://mackerel.io/api-docs/entry/host-metrics
-type HostMetricDefinition struct {
-	HostID string      `json:"hostId"`
-	Name   string      `json:"name"`
-	Metric interface{} `json:"metric"`
-	Stat   string      `json:"stat"`
-}
-
-// ParseMetric parses the metrics definitions.
-// See https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/CloudWatch-Dashboard-Body-Structure.html#CloudWatch-Dashboard-Properties-Metrics-Array-Format
-// The rendering properties object will be ignored.
-func ParseMetric(template *cloudwatch.GetMetricStatisticsInput, def interface{}) (*cloudwatch.GetMetricStatisticsInput, error) {
-	var ret cloudwatch.GetMetricStatisticsInput
-	ret = *template
-
-	var array []interface{}
-	switch def := def.(type) {
-	case []interface{}:
-		array = def
-	case []string:
-		array = make([]interface{}, 0, len(def))
-		for _, v := range def {
-			array = append(array, v)
-		}
-	case string:
-		if err := json.Unmarshal([]byte(def), &array); err != nil {
-			return nil, err
-		}
-	case []byte:
-		if err := json.Unmarshal(def, &array); err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("forwarder: type of metrics definition is invalid: %T", def)
-	}
-
-	if len(array) < 2 {
-		return nil, errors.New("forwarder: Namespace and MetricName are required")
-	}
-
-	namespace, ok := array[0].(string)
-	if !ok {
-		return nil, fmt.Errorf("forwarder: invalid type of Namespace: %T", array[0])
-	}
-	ret.Namespace = aws.String(namespace)
-
-	metricName, ok := array[1].(string)
-	if !ok {
-		return nil, fmt.Errorf("forwarder: invalid type of MetricName: %T", array[1])
-	}
-	ret.MetricName = aws.String(metricName)
-
-	dimensions := []cloudwatch.Dimension{}
-	for i := 2; i+1 < len(array); i += 2 {
-		name, ok := array[i].(string)
-		if !ok {
-			return nil, fmt.Errorf("forwarder: invalid type of DimensionName: %T", array[i])
-		}
-		value, ok := array[i+1].(string)
-		if !ok {
-			return nil, fmt.Errorf("forwarder: invalid type of DimensionValue: %T", array[i+1])
-		}
-		dimensions = append(dimensions, cloudwatch.Dimension{
-			Name:  aws.String(name),
-			Value: aws.String(value),
-		})
-	}
-	ret.Dimensions = dimensions
-
-	return &ret, nil
 }
