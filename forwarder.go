@@ -3,6 +3,7 @@ package forwarder
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/kmsiface"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/ssmiface"
+	phperjson "github.com/shogo82148/go-phper-json"
 	"github.com/sirupsen/logrus"
 )
 
@@ -189,7 +191,12 @@ type forwardContext struct {
 }
 
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
-func (f *Forwarder) ForwardMetrics(ctx context.Context, query []cloudwatch.MetricDataQuery) error {
+func (f *Forwarder) ForwardMetrics(ctx context.Context, data json.RawMessage) error {
+	var query []cloudwatch.MetricDataQuery
+	if err := phperjson.Unmarshal([]byte(data), &query); err != nil {
+		return err
+	}
+
 	now := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
 	defer cancel()
