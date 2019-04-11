@@ -192,7 +192,7 @@ type forwardContext struct {
 
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
 func (f *Forwarder) ForwardMetrics(ctx context.Context, data json.RawMessage) error {
-	var query []cloudwatch.MetricDataQuery
+	var query []*Query
 	if err := phperjson.Unmarshal([]byte(data), &query); err != nil {
 		return err
 	}
@@ -315,12 +315,16 @@ func (m *hostMetricsType) Drop(t time.Time) int {
 }
 
 // getMetricsData gets metrics data from CloudWatch Metrics.
-func (fctx *forwardContext) getMetricsData(query []cloudwatch.MetricDataQuery) error {
+func (fctx *forwardContext) getMetricsData(query []*Query) error {
 	svc := fctx.forwarder.cloudwatch()
+	metricQuery, err := ToMetricDataQuery(query)
+	if err != nil {
+		return err 
+	}
 	in := &cloudwatch.GetMetricDataInput{
 		StartTime:         aws.Time(fctx.start),
 		EndTime:           aws.Time(fctx.end),
-		MetricDataQueries: query,
+		MetricDataQueries: metricQuery,
 	}
 	for {
 		req := svc.GetMetricDataRequest(in)
