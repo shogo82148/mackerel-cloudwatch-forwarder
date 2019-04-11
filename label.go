@@ -12,12 +12,12 @@ type Label struct {
 	MetricName string
 }
 
-// ParseLabel parses a lebel.
+// ParseLabel parses a label.
 func ParseLabel(s string) (Label, error) {
 	idx := strings.IndexByte(s, ':')
 	switch {
 	case idx <= 0:
-		return Label{}, fmt.Errorf("invalid label format, service name of host id is required: %s", s)
+		return Label{}, fmt.Errorf("invalid label format, either service name or host id is required but not both: %s", s)
 	case idx == len(s):
 		return Label{}, fmt.Errorf("invalid label format, metric name is required: %s", s)
 	}
@@ -29,7 +29,7 @@ func ParseLabel(s string) (Label, error) {
 	case idx <= 0:
 		return Label{}, fmt.Errorf("invalid label format, `service' or `host' is required: %s", s)
 	case idx == len(s):
-		return Label{}, fmt.Errorf("invalid label format, service name of host id is required: %s", s)
+		return Label{}, fmt.Errorf("invalid label format, either service name or host id is required but not both: %s", s)
 	}
 	t, id := l[:idx], l[idx+1:]
 
@@ -46,4 +46,18 @@ func ParseLabel(s string) (Label, error) {
 		}, nil
 	}
 	return Label{}, fmt.Errorf("invalid label format, unknown id name: %s", t)
+}
+
+func (l Label) String() string {
+	var buf strings.Builder
+	if l.Service != "" {
+		buf.WriteString("service=")
+		buf.WriteString(l.Service)
+	} else if l.HostID != "" {
+		buf.WriteString("host=")
+		buf.WriteString(l.HostID)
+	}
+	buf.WriteString(":")
+	buf.WriteString(l.MetricName)
+	return buf.String()
 }

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func Test(t *testing.T) {
+func TestParseLabel(t *testing.T) {
 	testcases := []struct {
 		in    string
 		out   Label
@@ -68,6 +68,35 @@ func Test(t *testing.T) {
 			if err == nil {
 				t.Errorf("no.%d: want error, got nil", i)
 			}
+		}
+	}
+}
+
+func TestLabel_String(t *testing.T) {
+	testcases := []struct {
+		in  Label
+		out string
+	}{
+		{
+			in: Label{
+				Service:    "prod",
+				MetricName: "foo.bar.baz",
+			},
+			out: "service=prod:foo.bar.baz",
+		},
+		{
+			in: Label{
+				HostID:     "abcdefg",
+				MetricName: "boo.foo.uoo",
+			},
+			out: "host=abcdefg:boo.foo.uoo",
+		},
+	}
+
+	for _, tc := range testcases {
+		got := tc.in.String()
+		if got != tc.out {
+			t.Errorf("want %s, got %s", tc.out, got)
 		}
 	}
 }
