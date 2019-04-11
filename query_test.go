@@ -16,17 +16,25 @@ func TestToMetricDataQuery(t *testing.T) {
 	}{
 		{
 			in: []*Query{
+				// service metric
 				{
 					Service: "foo-bar",
-					Name:    "some.metric",
+					Name:    "metric.sum",
 					Metric:  []interface{}{"Namespace", "MetricName"},
 					Stat:    "Sum",
+				},
+				// shorthand
+				{
+					Service: ".",
+					Name:    "metric.average",
+					Metric:  []interface{}{".", "."},
+					Stat:    "Average",
 				},
 			},
 			out: []cloudwatch.MetricDataQuery{
 				{
 					Id:    aws.String("m1"),
-					Label: aws.String("service=foo-bar:some.metric"),
+					Label: aws.String("service=foo-bar:metric.sum"),
 					MetricStat: &cloudwatch.MetricStat{
 						Metric: &cloudwatch.Metric{
 							Namespace:  aws.String("Namespace"),
@@ -34,6 +42,18 @@ func TestToMetricDataQuery(t *testing.T) {
 						},
 						Period: aws.Int64(60),
 						Stat:   aws.String("Sum"),
+					},
+				},
+				{
+					Id:    aws.String("m2"),
+					Label: aws.String("service=foo-bar:metric.average"),
+					MetricStat: &cloudwatch.MetricStat{
+						Metric: &cloudwatch.Metric{
+							Namespace:  aws.String("Namespace"),
+							MetricName: aws.String("MetricName"),
+						},
+						Period: aws.Int64(60),
+						Stat:   aws.String("Average"),
 					},
 				},
 			},

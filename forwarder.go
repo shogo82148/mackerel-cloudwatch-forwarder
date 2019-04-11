@@ -319,7 +319,7 @@ func (fctx *forwardContext) getMetricsData(query []*Query) error {
 	svc := fctx.forwarder.cloudwatch()
 	metricQuery, err := ToMetricDataQuery(query)
 	if err != nil {
-		return err 
+		return err
 	}
 	in := &cloudwatch.GetMetricDataInput{
 		StartTime:         aws.Time(fctx.start),

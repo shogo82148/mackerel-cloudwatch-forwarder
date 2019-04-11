@@ -74,7 +74,7 @@ func TestParseLabel(t *testing.T) {
 
 func TestLabel_String(t *testing.T) {
 	testcases := []struct {
-		in    Label
+		in  Label
 		out string
 	}{
 		{

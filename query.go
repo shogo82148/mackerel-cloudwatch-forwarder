@@ -10,43 +10,57 @@ import (
 
 // Query is a query for AWS CloudWatch.
 type Query struct {
-	Service string   `json:"service,omitempty"`
-	Host    string   `json:"host,omitempty"`
-	Name    string   `json:"name,omitempty"`
+	Service string        `json:"service,omitempty"`
+	Host    string        `json:"host,omitempty"`
+	Name    string        `json:"name,omitempty"`
 	Metric  []interface{} `json:"metric,omitempty"`
-	Stat    string   `json:"stat,omitempty"`
+	Stat    string        `json:"stat,omitempty"`
 }
 
 // ToMetricDataQuery converts the query to cloudwatch.MetricDataQuery.
 func ToMetricDataQuery(query []*Query) ([]cloudwatch.MetricDataQuery, error) {
+	// Namespace + MetricName + Maximum 10 Dimensions
+	var lastMetric [22]string
+	var lastHost, lastService, lastStat string
+
 	ret := make([]cloudwatch.MetricDataQuery, 0, len(query))
 
 	for i, q := range query {
 		host := q.Host
+		setDefault(&host, &lastHost)
 		service := q.Service
+		setDefault(&service, &lastService)
+		stat := q.Stat
+		setDefault(&stat, &lastStat)
 
 		if (host == "") == (service == "") {
 			logrus.WithFields(logrus.Fields{
-				"index": i,
-				"host": host,
+				"index":   i,
+				"host":    host,
 				"service": service,
 			}).Warn("either service name or host id is required but not both, skips")
 			continue
 		}
 		if len(q.Metric) < 2 {
 			logrus.WithFields(logrus.Fields{
-				"index": i,
+				"index":  i,
 				"metric": q.Metric,
 			}).Warn("at least, namespace and metric name are required, skips")
 		}
 		namespace := interfaceToString(q.Metric[0])
+		setDefault(&namespace, &lastMetric[0])
 		name := interfaceToString(q.Metric[1])
+		setDefault(&name, &lastMetric[1])
 
 		var dimensions []cloudwatch.Dimension
 		for j := 2; j+1 < len(q.Metric); j++ {
+			name := interfaceToString(q.Metric[j])
+			setDefault(&name, &lastMetric[j])
+			value := interfaceToString(q.Metric[j+1])
+			setDefault(&value, &lastMetric[j+1])
 			dimensions = append(dimensions, cloudwatch.Dimension{
-				Name: aws.String(interfaceToString(q.Metric[j])),
-				Value: aws.String(interfaceToString(q.Metric[j+1])),
+				Name:  aws.String(name),
+				Value: aws.String(value),
 			})
 		}
 
@@ -65,7 +79,7 @@ func ToMetricDataQuery(query []*Query) ([]cloudwatch.MetricDataQuery, error) {
 					Dimensions: dimensions,
 				},
 				Period: aws.Int64(60),
-				Stat:   aws.String(q.Stat),
+				Stat:   aws.String(stat),
 			},
 		})
 	}
@@ -77,4 +91,12 @@ func interfaceToString(in interface{}) string {
 		return s
 	}
 	return fmt.Sprintf("%s", in)
+}
+
+func setDefault(ret, last *string) {
+	if *ret == "." {
+		*ret = *last
+	} else {
+		*last = *ret
+	}
 }
