@@ -69,19 +69,26 @@ func ToMetricDataQuery(query []*Query) ([]cloudwatch.MetricDataQuery, error) {
 			HostID:     host,
 			MetricName: q.Name,
 		}
+		metric := &cloudwatch.Metric{
+			Namespace:  aws.String(namespace),
+			MetricName: aws.String(name),
+			Dimensions: dimensions,
+		}
 		ret = append(ret, cloudwatch.MetricDataQuery{
 			Id:    aws.String(fmt.Sprintf("m%d", i+1)),
 			Label: aws.String(label.String()),
 			MetricStat: &cloudwatch.MetricStat{
-				Metric: &cloudwatch.Metric{
-					Namespace:  aws.String(namespace),
-					MetricName: aws.String(name),
-					Dimensions: dimensions,
-				},
+				Metric: metric,
 				Period: aws.Int64(60),
 				Stat:   aws.String(stat),
 			},
 		})
+		logrus.WithFields(logrus.Fields{
+			"id":     fmt.Sprintf("m%d", i+1),
+			"label":  label.String(),
+			"metric": metric.String(),
+			"stat":   stat,
+		}).Debug("new metric data query")
 	}
 	return ret, nil
 }
