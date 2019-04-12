@@ -26,7 +26,7 @@ $(ARTIFACTS_DIR):
 	mkdir -p $@
 
 $(ARTIFACTS_DIR)/mackerel-cloudwatch-forwarder: $(ARTIFACTS_DIR) $(SRC_FILES) go.mod go.sum
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $@ ./cmd/mackerel-cloudwatch-forwarder
+	./run-in-docker.sh go build -o $@ ./cmd/mackerel-cloudwatch-forwarder
 
 $(RELEASE_DIR):
 	mkdir -p $@
