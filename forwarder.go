@@ -398,25 +398,27 @@ func (fctx *forwardContext) publishMetric() {
 	}
 
 	// publish host metrics
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := fctx.mackerel.PostHostMetricValues(fctx, []HostMetricValue(fctx.hostMetrics))
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err.Error(),
-			}).Warn("failed to post host metrics, will retry in next minutes")
+	if len(fctx.hostMetrics) > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := fctx.mackerel.PostHostMetricValues(fctx, []HostMetricValue(fctx.hostMetrics))
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"error": err.Error(),
+				}).Warn("failed to post host metrics, will retry in next minutes")
 
-			// save metrics to retry
-			fctx.mu.Lock()
-			defer fctx.mu.Unlock()
-			fctx.failedHostMetrics = fctx.hostMetrics
-		} else {
-			logrus.WithFields(logrus.Fields{
-				"count": len(fctx.hostMetrics),
-			}).Info("succeed to post host metrics")
-		}
-	}()
+				// save metrics to retry
+				fctx.mu.Lock()
+				defer fctx.mu.Unlock()
+				fctx.failedHostMetrics = fctx.hostMetrics
+			} else {
+				logrus.WithFields(logrus.Fields{
+					"count": len(fctx.hostMetrics),
+				}).Info("succeed to post host metrics")
+			}
+		}()
+	}
 
 	wg.Wait()
 }
