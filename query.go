@@ -53,7 +53,7 @@ func ToMetricDataQuery(query []*Query) ([]cloudwatch.MetricDataQuery, error) {
 		setDefault(&name, &lastMetric[1])
 
 		var dimensions []cloudwatch.Dimension
-		for j := 2; j+1 < len(q.Metric); j++ {
+		for j := 2; j+1 < len(q.Metric); j += 2 {
 			name := interfaceToString(q.Metric[j])
 			setDefault(&name, &lastMetric[j])
 			value := interfaceToString(q.Metric[j+1])

@@ -58,9 +58,74 @@ func TestToMetricDataQuery(t *testing.T) {
 				},
 			},
 		},
+
+		{
+			in: []*Query{
+				// host metric
+				{
+					Host:   "host-foo-bar",
+					Name:   "metric.sum",
+					Metric: []interface{}{"Namespace", "MetricName", "Host-Dimension1", "foo", "Host-Dimension2", "bar"},
+					Stat:   "Sum",
+				},
+				// shorthand
+				{
+					Host:   "host-hoge-fuga",
+					Name:   "metric.sum",
+					Metric: []interface{}{".", ".", ".", "hoge", ".", "fuga"},
+					Stat:   "Sum",
+				},
+			},
+			out: []cloudwatch.MetricDataQuery{
+				{
+					Id:    aws.String("m1"),
+					Label: aws.String("host=host-foo-bar:metric.sum"),
+					MetricStat: &cloudwatch.MetricStat{
+						Metric: &cloudwatch.Metric{
+							Namespace:  aws.String("Namespace"),
+							MetricName: aws.String("MetricName"),
+							Dimensions: []cloudwatch.Dimension{
+								cloudwatch.Dimension{
+									Name:  aws.String("Host-Dimension1"),
+									Value: aws.String("foo"),
+								},
+								cloudwatch.Dimension{
+									Name:  aws.String("Host-Dimension2"),
+									Value: aws.String("bar"),
+								},
+							},
+						},
+						Period: aws.Int64(60),
+						Stat:   aws.String("Sum"),
+					},
+				},
+				{
+					Id:    aws.String("m2"),
+					Label: aws.String("host=host-hoge-fuga:metric.sum"),
+					MetricStat: &cloudwatch.MetricStat{
+						Metric: &cloudwatch.Metric{
+							Namespace:  aws.String("Namespace"),
+							MetricName: aws.String("MetricName"),
+							Dimensions: []cloudwatch.Dimension{
+								cloudwatch.Dimension{
+									Name:  aws.String("Host-Dimension1"),
+									Value: aws.String("hoge"),
+								},
+								cloudwatch.Dimension{
+									Name:  aws.String("Host-Dimension2"),
+									Value: aws.String("fuga"),
+								},
+							},
+						},
+						Period: aws.Int64(60),
+						Stat:   aws.String("Sum"),
+					},
+				},
+			},
+		},
 	}
 
-	opt := cmpopts.IgnoreUnexported(cloudwatch.MetricDataQuery{}, cloudwatch.MetricStat{}, cloudwatch.Metric{})
+	opt := cmpopts.IgnoreUnexported(cloudwatch.MetricDataQuery{}, cloudwatch.MetricStat{}, cloudwatch.Metric{}, cloudwatch.Dimension{})
 	for _, tc := range testcases {
 		got, err := ToMetricDataQuery(tc.in)
 		if err != nil {
