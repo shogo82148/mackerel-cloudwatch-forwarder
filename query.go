@@ -86,7 +86,7 @@ func ToMetricDataQuery(query []*Query) ([]cloudwatch.MetricDataQuery, error) {
 		logrus.WithFields(logrus.Fields{
 			"id":     fmt.Sprintf("m%d", i+1),
 			"label":  label.String(),
-			"metric": metric.String(),
+			"metric": metric.GoString(),
 			"stat":   stat,
 		}).Debug("new metric data query")
 	}
