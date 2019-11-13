@@ -44,9 +44,9 @@ type Forwarder struct {
 
 	mu            sync.Mutex
 	svcmackerel   *MackerelClient
-	svcssm        ssmiface.SSMAPI
-	svckms        kmsiface.KMSAPI
-	svccloudwatch cloudwatchiface.CloudWatchAPI
+	svcssm        ssmiface.ClientAPI
+	svckms        kmsiface.ClientAPI
+	svccloudwatch cloudwatchiface.ClientAPI
 
 	muPending             sync.Mutex
 	pendingServiceMetrics serviceMetricsType
@@ -78,7 +78,7 @@ func (f *Forwarder) mackerel(ctx context.Context) (*MackerelClient, error) {
 	return f.svcmackerel, nil
 }
 
-func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.SSMAPI, svckms kmsiface.KMSAPI) (string, error) {
+func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.ClientAPI, svckms kmsiface.ClientAPI) (string, error) {
 	decrypt := f.APIKeyWithDecrypt
 	if os.Getenv("MACKEREL_APIKEY_WITH_DECRYPT") != "" {
 		decrypt = true
@@ -95,8 +95,7 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.SSMAPI, svckms k
 		req := svckms.DecryptRequest(&kms.DecryptInput{
 			CiphertextBlob: b,
 		})
-		req.SetContext(ctx)
-		resp, err := req.Send()
+		resp, err := req.Send(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -108,8 +107,7 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.SSMAPI, svckms k
 			Name:           aws.String(f.APIKeyParameter),
 			WithDecryption: aws.Bool(decrypt),
 		})
-		req.SetContext(ctx)
-		resp, err := req.Send()
+		resp, err := req.Send(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -126,8 +124,7 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.SSMAPI, svckms k
 		req := svckms.DecryptRequest(&kms.DecryptInput{
 			CiphertextBlob: b,
 		})
-		req.SetContext(ctx)
-		resp, err := req.Send()
+		resp, err := req.Send(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -139,8 +136,7 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.SSMAPI, svckms k
 			Name:           aws.String(name),
 			WithDecryption: aws.Bool(decrypt),
 		})
-		req.SetContext(ctx)
-		resp, err := req.Send()
+		resp, err := req.Send(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -149,7 +145,7 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.SSMAPI, svckms k
 	return "", errors.New("forwarder: api key for the mackerel is not found")
 }
 
-func (f *Forwarder) ssm() ssmiface.SSMAPI {
+func (f *Forwarder) ssm() ssmiface.ClientAPI {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.svcssm == nil {
@@ -158,7 +154,7 @@ func (f *Forwarder) ssm() ssmiface.SSMAPI {
 	return f.svcssm
 }
 
-func (f *Forwarder) kms() kmsiface.KMSAPI {
+func (f *Forwarder) kms() kmsiface.ClientAPI {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.svckms == nil {
@@ -167,7 +163,7 @@ func (f *Forwarder) kms() kmsiface.KMSAPI {
 	return f.svckms
 }
 
-func (f *Forwarder) cloudwatch() cloudwatchiface.CloudWatchAPI {
+func (f *Forwarder) cloudwatch() cloudwatchiface.ClientAPI {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.svccloudwatch == nil {
@@ -328,8 +324,7 @@ func (fctx *forwardContext) getMetricsData(query []*Query) error {
 	}
 	for {
 		req := svc.GetMetricDataRequest(in)
-		req.SetContext(fctx)
-		page, err := req.Send()
+		page, err := req.Send(fctx)
 		if err != nil {
 			return err
 		}
