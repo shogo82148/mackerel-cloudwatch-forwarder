@@ -1,7 +1,7 @@
 module github.com/shogo82148/mackerel-cloudwatch-forwarder
 
 require (
-	github.com/aws/aws-lambda-go v1.14.0
+	github.com/aws/aws-lambda-go v1.14.1
 	github.com/aws/aws-sdk-go-v2 v0.17.0
 	github.com/google/go-cmp v0.4.0
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
