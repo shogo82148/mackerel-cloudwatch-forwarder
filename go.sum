@@ -5,6 +5,8 @@ github.com/aws/aws-lambda-go v1.16.0 h1:9+Pp1/6cjEXYhwadp8faFXKSOWt7/tHRCnQxQmKv
 github.com/aws/aws-lambda-go v1.16.0/go.mod h1:FEwgPLE6+8wcGBTe5cJN3JWurd1Ztm9zN4jsXsjzKKw=
 github.com/aws/aws-lambda-go v1.17.0 h1:Ogihmi8BnpmCNktKAGpNwSiILNNING1MiosnKUfU8m0=
 github.com/aws/aws-lambda-go v1.17.0/go.mod h1:FEwgPLE6+8wcGBTe5cJN3JWurd1Ztm9zN4jsXsjzKKw=
+github.com/aws/aws-lambda-go v1.18.0 h1:13AfxzFoPlFjOzXHbRnKuTbteCzHbu4YQgKONNhWcmo=
+github.com/aws/aws-lambda-go v1.18.0/go.mod h1:FEwgPLE6+8wcGBTe5cJN3JWurd1Ztm9zN4jsXsjzKKw=
 github.com/aws/aws-sdk-go-v2 v0.20.0 h1:/yefUjgMrda9PNFwWctBU63nL10CJMdBwkAmaQ4w4Hs=
 github.com/aws/aws-sdk-go-v2 v0.20.0/go.mod h1:2LhT7UgHOXK3UXONKI5OMgIyoQL6zTAw/jwIeX6yqzw=
 github.com/aws/aws-sdk-go-v2 v0.21.0 h1:95HzeBHoSMSajvYGiRHUruRC2/sH1YZZTMEv9Q/2T5w=
