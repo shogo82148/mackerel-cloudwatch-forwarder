@@ -85,11 +85,11 @@ func TestToMetricDataQuery(t *testing.T) {
 							Namespace:  aws.String("Namespace"),
 							MetricName: aws.String("MetricName"),
 							Dimensions: []cloudwatch.Dimension{
-								cloudwatch.Dimension{
+								{
 									Name:  aws.String("Host-Dimension1"),
 									Value: aws.String("foo"),
 								},
-								cloudwatch.Dimension{
+								{
 									Name:  aws.String("Host-Dimension2"),
 									Value: aws.String("bar"),
 								},
@@ -107,11 +107,11 @@ func TestToMetricDataQuery(t *testing.T) {
 							Namespace:  aws.String("Namespace"),
 							MetricName: aws.String("MetricName"),
 							Dimensions: []cloudwatch.Dimension{
-								cloudwatch.Dimension{
+								{
 									Name:  aws.String("Host-Dimension1"),
 									Value: aws.String("hoge"),
 								},
-								cloudwatch.Dimension{
+								{
 									Name:  aws.String("Host-Dimension2"),
 									Value: aws.String("fuga"),
 								},
