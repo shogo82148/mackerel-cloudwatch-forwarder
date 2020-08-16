@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Forward the metrics in AWS CloudWatch to the Mackerel.
 
@@ -10,18 +10,18 @@ Metadata:
     SpdxLicenseId: MIT
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
-    Labels: ['tests']
+    Labels: ["tests"]
     HomePageUrl: https://github.com/shogo82148/mackerel-cloudwatch-forwarder
     SemanticVersion: 0.0.9
     SourceCodeUrl: https://github.com/shogo82148/mackerel-cloudwatch-forwarder
 
-Parameters: 
-  ParameterName: 
+Parameters:
+  ParameterName:
     Type: AWS::SSM::Parameter::Name
     Description: Name of SSM Parameter Store Parameter for the Mackerel API Key.
   ForwardSettings:
     Type: String
-    Default: '[]'
+    Default: "[]"
     Description: Metrics settings for forwarding
   LogLevel:
     Type: String
@@ -43,7 +43,7 @@ Resources:
       CodeUri: release/latest/mackerel-cloudwatch-forwarder.zip
       Policies:
         - CloudWatchReadOnlyAccess
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
               Action:
