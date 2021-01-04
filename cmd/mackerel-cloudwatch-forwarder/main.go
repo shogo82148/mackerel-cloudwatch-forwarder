@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/config"
 	forwarder "github.com/shogo82148/mackerel-cloudwatch-forwarder"
 	"github.com/sirupsen/logrus"
 )
@@ -27,7 +28,7 @@ func init() {
 }
 
 func main() {
-	cfg, err := external.LoadDefaultAWSConfig()
+	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		logrus.WithError(err).Error("fail to load aws config")
 	}
