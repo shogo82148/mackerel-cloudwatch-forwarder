@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -12,7 +12,7 @@ import (
 func TestToMetricDataQuery(t *testing.T) {
 	testcases := []struct {
 		in  []*Query
-		out []cloudwatch.MetricDataQuery
+		out []types.MetricDataQuery
 	}{
 		{
 			in: []*Query{
@@ -31,28 +31,28 @@ func TestToMetricDataQuery(t *testing.T) {
 					Stat:    "Average",
 				},
 			},
-			out: []cloudwatch.MetricDataQuery{
+			out: []types.MetricDataQuery{
 				{
 					Id:    aws.String("m1"),
 					Label: aws.String("service=foo-bar:metric.sum"),
-					MetricStat: &cloudwatch.MetricStat{
-						Metric: &cloudwatch.Metric{
+					MetricStat: &types.MetricStat{
+						Metric: &types.Metric{
 							Namespace:  aws.String("Namespace"),
 							MetricName: aws.String("MetricName"),
 						},
-						Period: aws.Int64(60),
+						Period: aws.Int32(60),
 						Stat:   aws.String("Sum"),
 					},
 				},
 				{
 					Id:    aws.String("m2"),
 					Label: aws.String("service=foo-bar:metric.average"),
-					MetricStat: &cloudwatch.MetricStat{
-						Metric: &cloudwatch.Metric{
+					MetricStat: &types.MetricStat{
+						Metric: &types.Metric{
 							Namespace:  aws.String("Namespace"),
 							MetricName: aws.String("MetricName"),
 						},
-						Period: aws.Int64(60),
+						Period: aws.Int32(60),
 						Stat:   aws.String("Average"),
 					},
 				},
@@ -76,15 +76,15 @@ func TestToMetricDataQuery(t *testing.T) {
 					Stat:   "Sum",
 				},
 			},
-			out: []cloudwatch.MetricDataQuery{
+			out: []types.MetricDataQuery{
 				{
 					Id:    aws.String("m1"),
 					Label: aws.String("host=host-foo-bar:metric.sum"),
-					MetricStat: &cloudwatch.MetricStat{
-						Metric: &cloudwatch.Metric{
+					MetricStat: &types.MetricStat{
+						Metric: &types.Metric{
 							Namespace:  aws.String("Namespace"),
 							MetricName: aws.String("MetricName"),
-							Dimensions: []cloudwatch.Dimension{
+							Dimensions: []types.Dimension{
 								{
 									Name:  aws.String("Host-Dimension1"),
 									Value: aws.String("foo"),
@@ -95,18 +95,18 @@ func TestToMetricDataQuery(t *testing.T) {
 								},
 							},
 						},
-						Period: aws.Int64(60),
+						Period: aws.Int32(60),
 						Stat:   aws.String("Sum"),
 					},
 				},
 				{
 					Id:    aws.String("m2"),
 					Label: aws.String("host=host-hoge-fuga:metric.sum"),
-					MetricStat: &cloudwatch.MetricStat{
-						Metric: &cloudwatch.Metric{
+					MetricStat: &types.MetricStat{
+						Metric: &types.Metric{
 							Namespace:  aws.String("Namespace"),
 							MetricName: aws.String("MetricName"),
-							Dimensions: []cloudwatch.Dimension{
+							Dimensions: []types.Dimension{
 								{
 									Name:  aws.String("Host-Dimension1"),
 									Value: aws.String("hoge"),
@@ -117,7 +117,7 @@ func TestToMetricDataQuery(t *testing.T) {
 								},
 							},
 						},
-						Period: aws.Int64(60),
+						Period: aws.Int32(60),
 						Stat:   aws.String("Sum"),
 					},
 				},
@@ -125,7 +125,7 @@ func TestToMetricDataQuery(t *testing.T) {
 		},
 	}
 
-	opt := cmpopts.IgnoreUnexported(cloudwatch.MetricDataQuery{}, cloudwatch.MetricStat{}, cloudwatch.Metric{}, cloudwatch.Dimension{})
+	opt := cmpopts.IgnoreUnexported(types.MetricDataQuery{}, types.MetricStat{}, types.Metric{}, types.Dimension{})
 	for _, tc := range testcases {
 		got, err := ToMetricDataQuery(tc.in)
 		if err != nil {

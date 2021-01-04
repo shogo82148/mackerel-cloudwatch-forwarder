@@ -12,11 +12,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/cloudwatchiface"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
-	"github.com/aws/aws-sdk-go-v2/service/kms/kmsiface"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/aws/aws-sdk-go-v2/service/ssm/ssmiface"
 	phperjson "github.com/shogo82148/go-phper-json"
 	"github.com/sirupsen/logrus"
 )
@@ -44,9 +41,9 @@ type Forwarder struct {
 
 	mu            sync.Mutex
 	svcmackerel   *MackerelClient
-	svcssm        ssmiface.ClientAPI
-	svckms        kmsiface.ClientAPI
-	svccloudwatch cloudwatchiface.ClientAPI
+	svcssm        ssmiface
+	svckms        kmsiface
+	svccloudwatch cloudwatchiface
 
 	muPending             sync.Mutex
 	pendingServiceMetrics serviceMetricsType
@@ -78,7 +75,7 @@ func (f *Forwarder) mackerel(ctx context.Context) (*MackerelClient, error) {
 	return f.svcmackerel, nil
 }
 
-func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.ClientAPI, svckms kmsiface.ClientAPI) (string, error) {
+func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface, svckms kmsiface) (string, error) {
 	decrypt := f.APIKeyWithDecrypt
 	if os.Getenv("MACKEREL_APIKEY_WITH_DECRYPT") != "" {
 		decrypt = true
@@ -92,10 +89,9 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.ClientAPI, svckm
 		if err != nil {
 			return "", err
 		}
-		req := svckms.DecryptRequest(&kms.DecryptInput{
+		resp, err := svckms.Decrypt(ctx, &kms.DecryptInput{
 			CiphertextBlob: b,
 		})
-		resp, err := req.Send(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -103,15 +99,14 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.ClientAPI, svckm
 		return key, nil
 	}
 	if f.APIKeyParameter != "" {
-		req := svcssm.GetParameterRequest(&ssm.GetParameterInput{
+		resp, err := svcssm.GetParameter(ctx, &ssm.GetParameterInput{
 			Name:           aws.String(f.APIKeyParameter),
-			WithDecryption: aws.Bool(decrypt),
+			WithDecryption: decrypt,
 		})
-		resp, err := req.Send(ctx)
 		if err != nil {
 			return "", err
 		}
-		return aws.StringValue(resp.Parameter.Value), nil
+		return aws.ToString(resp.Parameter.Value), nil
 	}
 	if key := os.Getenv("MACKEREL_APIKEY"); key != "" {
 		if !decrypt {
@@ -121,10 +116,9 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.ClientAPI, svckm
 		if err != nil {
 			return "", err
 		}
-		req := svckms.DecryptRequest(&kms.DecryptInput{
+		resp, err := svckms.Decrypt(ctx, &kms.DecryptInput{
 			CiphertextBlob: b,
 		})
-		resp, err := req.Send(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -132,42 +126,41 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface.ClientAPI, svckm
 		return key, nil
 	}
 	if name := os.Getenv("MACKEREL_APIKEY_PARAMETER"); name != "" {
-		req := svcssm.GetParameterRequest(&ssm.GetParameterInput{
+		resp, err := svcssm.GetParameter(ctx, &ssm.GetParameterInput{
 			Name:           aws.String(name),
-			WithDecryption: aws.Bool(decrypt),
+			WithDecryption: decrypt,
 		})
-		resp, err := req.Send(ctx)
 		if err != nil {
 			return "", err
 		}
-		return aws.StringValue(resp.Parameter.Value), nil
+		return aws.ToString(resp.Parameter.Value), nil
 	}
 	return "", errors.New("forwarder: api key for the mackerel is not found")
 }
 
-func (f *Forwarder) ssm() ssmiface.ClientAPI {
+func (f *Forwarder) ssm() ssmiface {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.svcssm == nil {
-		f.svcssm = ssm.New(f.Config)
+		f.svcssm = ssm.NewFromConfig(f.Config)
 	}
 	return f.svcssm
 }
 
-func (f *Forwarder) kms() kmsiface.ClientAPI {
+func (f *Forwarder) kms() kmsiface {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.svckms == nil {
-		f.svckms = kms.New(f.Config)
+		f.svckms = kms.NewFromConfig(f.Config)
 	}
 	return f.svckms
 }
 
-func (f *Forwarder) cloudwatch() cloudwatchiface.ClientAPI {
+func (f *Forwarder) cloudwatch() cloudwatchiface {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.svccloudwatch == nil {
-		f.svccloudwatch = cloudwatch.New(f.Config)
+		f.svccloudwatch = cloudwatch.NewFromConfig(f.Config)
 	}
 	return f.svccloudwatch
 }
@@ -317,19 +310,18 @@ func (fctx *forwardContext) getMetricsData(query []*Query) error {
 	if err != nil {
 		return err
 	}
-	in := &cloudwatch.GetMetricDataInput{
+	paginator := cloudwatch.NewGetMetricDataPaginator(svc, &cloudwatch.GetMetricDataInput{
 		StartTime:         aws.Time(fctx.start),
 		EndTime:           aws.Time(fctx.end),
 		MetricDataQueries: metricQuery,
-	}
-	for {
-		req := svc.GetMetricDataRequest(in)
-		page, err := req.Send(fctx)
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(fctx)
 		if err != nil {
 			return err
 		}
 		for _, result := range page.MetricDataResults {
-			label, err := ParseLabel(aws.StringValue(result.Label))
+			label, err := ParseLabel(aws.ToString(result.Label))
 			if err != nil {
 				return err
 			}
@@ -352,10 +344,6 @@ func (fctx *forwardContext) getMetricsData(query []*Query) error {
 				}
 			}
 		}
-		if page.NextToken == nil {
-			break
-		}
-		in.NextToken = page.NextToken
 	}
 	return nil
 }

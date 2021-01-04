@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,13 +17,13 @@ type Query struct {
 	Stat    string        `json:"stat,omitempty"`
 }
 
-// ToMetricDataQuery converts the query to cloudwatch.MetricDataQuery.
-func ToMetricDataQuery(query []*Query) ([]cloudwatch.MetricDataQuery, error) {
+// ToMetricDataQuery converts the query to (cloudwatch/types).MetricDataQuery.
+func ToMetricDataQuery(query []*Query) ([]types.MetricDataQuery, error) {
 	// Namespace + MetricName + Maximum 10 Dimensions
 	var lastMetric [22]string
 	var lastHost, lastService, lastStat string
 
-	ret := make([]cloudwatch.MetricDataQuery, 0, len(query))
+	ret := make([]types.MetricDataQuery, 0, len(query))
 
 	for i, q := range query {
 		host := q.Host
@@ -52,13 +52,13 @@ func ToMetricDataQuery(query []*Query) ([]cloudwatch.MetricDataQuery, error) {
 		name := interfaceToString(q.Metric[1])
 		setDefault(&name, &lastMetric[1])
 
-		var dimensions []cloudwatch.Dimension
+		var dimensions []types.Dimension
 		for j := 2; j+1 < len(q.Metric); j += 2 {
 			name := interfaceToString(q.Metric[j])
 			setDefault(&name, &lastMetric[j])
 			value := interfaceToString(q.Metric[j+1])
 			setDefault(&value, &lastMetric[j+1])
-			dimensions = append(dimensions, cloudwatch.Dimension{
+			dimensions = append(dimensions, types.Dimension{
 				Name:  aws.String(name),
 				Value: aws.String(value),
 			})
@@ -69,25 +69,24 @@ func ToMetricDataQuery(query []*Query) ([]cloudwatch.MetricDataQuery, error) {
 			HostID:     host,
 			MetricName: q.Name,
 		}
-		metric := &cloudwatch.Metric{
+		metric := &types.Metric{
 			Namespace:  aws.String(namespace),
 			MetricName: aws.String(name),
 			Dimensions: dimensions,
 		}
-		ret = append(ret, cloudwatch.MetricDataQuery{
+		ret = append(ret, types.MetricDataQuery{
 			Id:    aws.String(fmt.Sprintf("m%d", i+1)),
 			Label: aws.String(label.String()),
-			MetricStat: &cloudwatch.MetricStat{
+			MetricStat: &types.MetricStat{
 				Metric: metric,
-				Period: aws.Int64(60),
+				Period: aws.Int32(60),
 				Stat:   aws.String(stat),
 			},
 		})
 		logrus.WithFields(logrus.Fields{
-			"id":     fmt.Sprintf("m%d", i+1),
-			"label":  label.String(),
-			"metric": metric.String(),
-			"stat":   stat,
+			"id":    fmt.Sprintf("m%d", i+1),
+			"label": label.String(),
+			"stat":  stat,
 		}).Debug("new metric data query")
 	}
 	return ret, nil
