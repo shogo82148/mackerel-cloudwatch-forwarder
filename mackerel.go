@@ -83,7 +83,7 @@ func (c *MackerelClient) newRequest(ctx context.Context, method, path string, bo
 	if c.UserAgent != "" {
 		req.Header.Set("User-Agent", c.UserAgent)
 	} else {
-		agent := fmt.Sprintf("mackerel-cloudwatch-forwarder/%s", Version)
+		agent := fmt.Sprintf("mackerel-cloudwatch-forwarder/%s", version)
 		req.Header.Set("User-Agent", agent)
 	}
 
