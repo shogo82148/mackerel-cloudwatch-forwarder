@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-set -uex
-VERSION=$1
-perl -i -ple "s/SemanticVersion:.*$/SemanticVersion: $VERSION/" template.yaml
-perl -i -ple "s/const Version string = \"[^\"]+\"/const Version string = \"$VERSION\"/" version.go

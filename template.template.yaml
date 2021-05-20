@@ -6,11 +6,11 @@ Metadata:
   AWS::ServerlessRepo::Application:
     Name: mackerel-cloudwatch-forwarder
     Description: Forward metrics in AWS CloudWatch to the Mackerel.
-    Author: Shogo Ichinose
+    Author: Ichinose Shogo
     SpdxLicenseId: MIT
     LicenseUrl: LICENSE
     ReadmeUrl: README.md
-    Labels: ["tests"]
+    Labels: ["mackerelio"]
     HomePageUrl: https://github.com/shogo82148/mackerel-cloudwatch-forwarder
     SemanticVersion: __VERSION__
     SourceCodeUrl: https://github.com/shogo82148/mackerel-cloudwatch-forwarder
@@ -40,7 +40,7 @@ Resources:
       Handler: mackerel-cloudwatch-forwarder
       Runtime: provided.al2
       Timeout: 60
-      CodeUri: release/latest/mackerel-cloudwatch-forwarder.zip
+      CodeUri: dist.zip
       Policies:
         - CloudWatchReadOnlyAccess
         - SSMParameterReadPolicy:
