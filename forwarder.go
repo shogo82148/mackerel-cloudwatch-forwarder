@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"sync"
@@ -201,19 +202,20 @@ func (f *Forwarder) ForwardMetrics(ctx context.Context, data json.RawMessage) er
 func (f *Forwarder) forwardMetrics(ctx context.Context, data json.RawMessage) error {
 	var query []*Query
 	if err := phperjson.Unmarshal([]byte(data), &query); err != nil {
-		return err
+		return fmt.Errorf("forwarder: failed to parse the input: %w", err)
 	}
 
 	now := time.Now()
 
 	client, err := f.mackerel(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("forwarder: failed to configure the mackerel client: %w", err)
 	}
 
 	f.muPending.Lock()
 	defer f.muPending.Unlock()
 
+	// drop old metrics
 	if cnt := f.pendingHostMetrics.Drop(now.Add(-6 * time.Hour)); cnt > 0 {
 		logrus.WithFields(logrus.Fields{
 			"count": cnt,
