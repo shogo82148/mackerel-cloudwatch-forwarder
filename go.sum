@@ -12,8 +12,8 @@ github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1 h1:w1ocBIhQkLgupEB3d0uOuBdd
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1/go.mod h1:GTXAhrxHQOj9N+J5tYVjwt+rpRyy/42qLjlgw9pz1a0=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 h1:k7I9E6tyVWBo7H9ffpnxDWudtjau6Qt9rnOYgV+ciEQ=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0/go.mod h1:g3XMXuxvqSMUjnsXXp/960152w0wFS4CXVYgQaSVOHE=
-github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.4.0 h1:UUU2zBoSB9nhLrkp4r8/6JaKL6lro/BUe0aRDG1ir0w=
-github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.4.0/go.mod h1:k9rFZZMw35HsrOTUzTihqwAb6c3tGeKd9RwMUYgGKCI=
+github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.4.1 h1:Mt2+LnGKQQyncULtRrx+oJkIwnrfy5XKb96Rvsml30U=
+github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.4.1/go.mod h1:dWC4cWmhO3NI8sDqWSPU587mlTLhxCFdS/o3ym/QgMU=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1 h1:l7pDLsmOGrnR8LT+3gIv8NlHpUhs7220E457KEC2UM0=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1/go.mod h1:2+ehJPkdIdl46VCj67Emz/EH2hpebHZtaLdzqg+sWOI=
 github.com/aws/aws-sdk-go-v2/service/kms v1.3.0 h1:o9r3Eo14Wsf/FdAa7s3s3u0YiLgd5P5KiEkrASOWOHM=
