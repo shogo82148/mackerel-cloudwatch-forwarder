@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"sync"
@@ -181,23 +182,40 @@ type forwardContext struct {
 
 // ForwardMetrics forwards metrics of AWS CloudWatch to Mackerel
 func (f *Forwarder) ForwardMetrics(ctx context.Context, data json.RawMessage) error {
+	// set timeout to avoid to be killed by AWS Lambda
+	timeout := 50 * time.Second
+	deadline, ok := ctx.Deadline()
+	if ok {
+		timeout = time.Until(deadline)
+		timeout -= timeout / 10
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	err := f.forwardMetrics(ctx, data)
+	if err != nil {
+		logrus.Error(err)
+	}
+	return err
+}
+
+func (f *Forwarder) forwardMetrics(ctx context.Context, data json.RawMessage) error {
 	var query []*Query
 	if err := phperjson.Unmarshal([]byte(data), &query); err != nil {
-		return err
+		return fmt.Errorf("forwarder: failed to parse the input: %w", err)
 	}
 
 	now := time.Now()
-	ctx, cancel := context.WithTimeout(ctx, 50*time.Second)
-	defer cancel()
 
 	client, err := f.mackerel(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("forwarder: failed to configure the mackerel client: %w", err)
 	}
 
 	f.muPending.Lock()
 	defer f.muPending.Unlock()
 
+	// drop old metrics
 	if cnt := f.pendingHostMetrics.Drop(now.Add(-6 * time.Hour)); cnt > 0 {
 		logrus.WithFields(logrus.Fields{
 			"count": cnt,

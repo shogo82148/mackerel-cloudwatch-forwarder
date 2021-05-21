@@ -14,4 +14,5 @@ sam deploy \
     --capabilities CAPABILITY_IAM \
     --parameter-overrides \
         ParameterName=/development/api.mackerelio.com/headers/X-Api-Key \
-        ForwardSettings="'$ForwardSettings'"
+        ForwardSettings="'$ForwardSettings'" \
+        LogLevel=debug
