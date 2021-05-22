@@ -3,17 +3,14 @@ package forwarder
 import (
 	"bytes"
 	"context"
-	crand "crypto/rand"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
-	"net"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
+
+	"github.com/shogo82148/go-retry"
 )
 
 var defaultBaseURL *url.URL
@@ -43,10 +40,25 @@ type HostMetricValue struct {
 
 // MackerelClient is a tiny client for Mackerel.
 type MackerelClient struct {
-	BaseURL    *url.URL
-	APIKey     string
-	UserAgent  string
-	HTTPClient *http.Client
+	BaseURL     *url.URL
+	APIKey      string
+	UserAgent   string
+	HTTPClient  *http.Client
+	RetryPolicy retry.Policy
+}
+
+// NewMackerelClient creates a new MackerelClient.
+func NewMackerelClient(apiKey string) *MackerelClient {
+	return &MackerelClient{
+		BaseURL: defaultBaseURL,
+		APIKey:  apiKey,
+		RetryPolicy: retry.Policy{
+			MinDelay: 100 * time.Millisecond,
+			MaxDelay: 30 * time.Second,
+			Jitter:   time.Second,
+			MaxCount: 10,
+		},
+	}
 }
 
 func (c *MackerelClient) httpClient() *http.Client {
@@ -72,12 +84,11 @@ func (c *MackerelClient) urlfor(path string) string {
 
 func (c *MackerelClient) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
 	u := c.urlfor(path)
-	req, err := http.NewRequest(method, u, body)
+	req, err := http.NewRequestWithContext(ctx, method, u, body)
 	if err != nil {
 		return nil, err
 	}
 
-	req = req.WithContext(ctx)
 	req.Header.Set("X-Api-Key", c.APIKey)
 	if c.UserAgent != "" {
 		req.Header.Set("User-Agent", c.UserAgent)
@@ -129,6 +140,10 @@ func (e Error) Error() string {
 	return fmt.Sprintf("status: %d, %s", e.StatusCode, e.Message)
 }
 
+func (e Error) Temporary() bool {
+	return e.StatusCode >= 500 || e.StatusCode == http.StatusTooManyRequests
+}
+
 func handleError(resp *http.Response) error {
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -140,73 +155,15 @@ func handleError(resp *http.Response) error {
 	}
 }
 
-func shouldRetry(err error) bool {
-	if err, ok := err.(Error); ok {
-		return err.StatusCode >= 500 || err.StatusCode == http.StatusTooManyRequests
-	}
-	if err, ok := err.(net.Error); ok {
-		return err.Temporary()
-	}
-	return false
-}
-
-// basic implementaion of exponential back off.
-type retrier struct {
-	delay time.Duration
-}
-
-var (
-	mu          sync.Mutex
-	retrierRand *rand.Rand
-)
-
-func init() {
-	var seed int64
-	if err := binary.Read(crand.Reader, binary.LittleEndian, &seed); err != nil {
-		seed = time.Now().UnixNano() // fall back to timestamp
-	}
-	retrierRand = rand.New(rand.NewSource(seed))
-}
-
-func (r *retrier) Next(ctx context.Context) bool {
-	if r.delay == 0 {
-		r.delay = 100 * time.Millisecond
-		return true
-	}
-
-	mu.Lock()
-	jitter := time.Duration(retrierRand.Float64() * float64(time.Second))
-	mu.Unlock()
-
-	timer := time.NewTimer(r.delay + jitter)
-	defer timer.Stop()
-	select {
-	case <-timer.C:
-	case <-ctx.Done():
-		return false
-	}
-	r.delay *= 2
-	if r.delay >= 60*time.Second {
-		r.delay = 60 * time.Second
-	}
-
-	return true
-}
-
 // PostServiceMetricValues posts service metrics.
 func (c *MackerelClient) PostServiceMetricValues(ctx context.Context, serviceName string, values []ServiceMetricValue) error {
 	if len(values) == 0 {
 		return nil
 	}
 
-	r := new(retrier)
-	for r.Next(ctx) {
-		err := c.postJSON(ctx, fmt.Sprintf("api/v0/services/%s/tsdb", serviceName), values)
-		if err == nil || !shouldRetry(err) {
-			return err
-		}
-	}
-	return ctx.Err()
+	return c.RetryPolicy.Do(ctx, func() error {
+		return c.postJSON(ctx, fmt.Sprintf("api/v0/services/%s/tsdb", serviceName), values)
+	})
 }
 
 // PostHostMetricValues posts host metrics.
@@ -215,12 +172,7 @@ func (c *MackerelClient) PostHostMetricValues(ctx context.Context, values []Host
 		return nil
 	}
 
-	r := new(retrier)
-	for r.Next(ctx) {
-		err := c.postJSON(ctx, "api/v0/tsdb", values)
-		if err == nil || !shouldRetry(err) {
-			return err
-		}
-	}
-	return ctx.Err()
+	return c.RetryPolicy.Do(ctx, func() error {
+		return c.postJSON(ctx, "api/v0/tsdb", values)
+	})
 }
