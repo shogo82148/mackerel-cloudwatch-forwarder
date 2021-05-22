@@ -63,9 +63,7 @@ func (f *Forwarder) mackerel(ctx context.Context) (*MackerelClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	f.svcmackerel = &MackerelClient{
-		APIKey: key,
-	}
+	f.svcmackerel = NewMackerelClient(key)
 	if f.APIURL != "" {
 		u, err := url.Parse(f.APIURL)
 		if err != nil {
