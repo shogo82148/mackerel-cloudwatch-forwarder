@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -115,7 +114,7 @@ func (c *MackerelClient) postJSON(ctx context.Context, path string, payload inte
 		return handleError(resp)
 	}
 
-	io.Copy(ioutil.Discard, resp.Body)
+	io.Copy(io.Discard, resp.Body)
 
 	return nil
 }
@@ -131,7 +130,7 @@ func (e Error) Error() string {
 }
 
 func handleError(resp *http.Response) error {
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
