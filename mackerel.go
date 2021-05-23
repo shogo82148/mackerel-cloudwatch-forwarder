@@ -106,7 +106,7 @@ func (c *MackerelClient) postJSON(ctx context.Context, path string, payload inte
 
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		return retry.MarkPermanent(err)
 	}
 
 	req, err := c.newRequest(ctx, http.MethodPost, path, bytes.NewReader(data))
