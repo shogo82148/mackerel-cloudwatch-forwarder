@@ -165,7 +165,6 @@ func (f *Forwarder) cloudwatch() cloudwatchiface {
 }
 
 type forwardContext struct {
-	context.Context
 	forwarder      *Forwarder
 	mackerel       *MackerelClient
 	start          time.Time
@@ -221,7 +220,6 @@ func (f *Forwarder) forwardMetrics(ctx context.Context, data json.RawMessage) er
 	}
 
 	fctx := &forwardContext{
-		Context:        ctx,
 		forwarder:      f,
 		mackerel:       client,
 		start:          now.Add(-3 * time.Minute),
@@ -230,11 +228,11 @@ func (f *Forwarder) forwardMetrics(ctx context.Context, data json.RawMessage) er
 		hostMetrics:    f.pendingHostMetrics,
 	}
 
-	err = fctx.getMetricsData(query)
+	err = fctx.getMetricsData(ctx, query)
 	// note: do not check error here.
 	// because we need to publish pending metrics.
 
-	fctx.publishMetric()
+	fctx.publishMetric(ctx)
 	f.pendingServiceMetrics = fctx.failedServiceMetrics
 	f.pendingHostMetrics = fctx.failedHostMetrics
 	return err
@@ -320,7 +318,7 @@ func (m *hostMetricsType) Drop(t time.Time) int {
 }
 
 // getMetricsData gets metrics data from CloudWatch Metrics.
-func (fctx *forwardContext) getMetricsData(query []*Query) error {
+func (fctx *forwardContext) getMetricsData(ctx context.Context, query []*Query) error {
 	svc := fctx.forwarder.cloudwatch()
 	metricQuery, err := ToMetricDataQuery(query)
 	if err != nil {
@@ -332,7 +330,7 @@ func (fctx *forwardContext) getMetricsData(query []*Query) error {
 		MetricDataQueries: metricQuery,
 	})
 	for paginator.HasMorePages() {
-		page, err := paginator.NextPage(fctx)
+		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			return err
 		}
@@ -364,7 +362,7 @@ func (fctx *forwardContext) getMetricsData(query []*Query) error {
 	return nil
 }
 
-func (fctx *forwardContext) publishMetric() {
+func (fctx *forwardContext) publishMetric(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	// publush service metrics
@@ -373,7 +371,7 @@ func (fctx *forwardContext) publishMetric() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := fctx.mackerel.PostServiceMetricValues(fctx, service, metrics)
+			err := fctx.mackerel.PostServiceMetricValues(ctx, service, metrics)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"error":   err.Error(),
@@ -401,7 +399,7 @@ func (fctx *forwardContext) publishMetric() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := fctx.mackerel.PostHostMetricValues(fctx, []HostMetricValue(fctx.hostMetrics))
+			err := fctx.mackerel.PostHostMetricValues(ctx, []HostMetricValue(fctx.hostMetrics))
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"error": err.Error(),
