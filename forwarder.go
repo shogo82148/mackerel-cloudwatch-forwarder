@@ -332,7 +332,7 @@ func (m *hostMetricsType) Drop(t time.Time) int {
 // getMetricsData gets metrics data from CloudWatch Metrics.
 func (fctx *forwardContext) getMetricsData(ctx context.Context, query []*Query) error {
 	svc := fctx.forwarder.cloudwatch()
-	metricQuery, err := ToMetricDataQuery(query)
+	metricQuery, defaults, err := ToMetricDataQuery(query)
 	if err != nil {
 		return err
 	}
@@ -341,12 +341,14 @@ func (fctx *forwardContext) getMetricsData(ctx context.Context, query []*Query) 
 		EndTime:           aws.Time(fctx.end),
 		MetricDataQueries: metricQuery,
 	})
+	seen := make(map[string]struct{}, len(query))
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			return err
 		}
 		for _, result := range page.MetricDataResults {
+			seen[aws.ToString(result.Label)] = struct{}{}
 			label, err := ParseLabel(aws.ToString(result.Label))
 			if err != nil {
 				return err
@@ -360,7 +362,7 @@ func (fctx *forwardContext) getMetricsData(ctx context.Context, query []*Query) 
 						Time:  t.Unix(),
 						Value: v,
 					})
-				} else {
+				} else if label.HostID != "" {
 					fctx.hostMetrics.Append(HostMetricValue{
 						HostID: label.HostID,
 						Name:   label.MetricName,
@@ -369,6 +371,30 @@ func (fctx *forwardContext) getMetricsData(ctx context.Context, query []*Query) 
 					})
 				}
 			}
+		}
+	}
+
+	for l, v := range defaults {
+		if _, ok := seen[l]; ok {
+			continue
+		}
+		label, err := ParseLabel(l)
+		if err != nil {
+			return err
+		}
+		if label.Service != "" {
+			fctx.serviceMetrics.Append(label.Service, ServiceMetricValue{
+				Name:  label.MetricName,
+				Time:  fctx.start.Unix(),
+				Value: v,
+			})
+		} else if label.HostID != "" {
+			fctx.hostMetrics.Append(HostMetricValue{
+				HostID: label.HostID,
+				Name:   label.MetricName,
+				Time:   fctx.start.Unix(),
+				Value:  v,
+			})
 		}
 	}
 	return nil

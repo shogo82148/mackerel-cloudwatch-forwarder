@@ -15,15 +15,17 @@ type Query struct {
 	Name    string        `json:"name,omitempty"`
 	Metric  []interface{} `json:"metric,omitempty"`
 	Stat    string        `json:"stat,omitempty"`
+	Default *float64      `json:"default,omitempty"`
 }
 
 // ToMetricDataQuery converts the query to (cloudwatch/types).MetricDataQuery.
-func ToMetricDataQuery(query []*Query) ([]types.MetricDataQuery, error) {
+func ToMetricDataQuery(query []*Query) ([]types.MetricDataQuery, map[string]float64, error) {
 	// Namespace + MetricName + Maximum 10 Dimensions
 	var lastMetric [22]string
 	var lastHost, lastService, lastStat string
 
 	ret := make([]types.MetricDataQuery, 0, len(query))
+	defaults := make(map[string]float64, len(query))
 
 	for i, q := range query {
 		host := q.Host
@@ -83,13 +85,18 @@ func ToMetricDataQuery(query []*Query) ([]types.MetricDataQuery, error) {
 				Stat:   aws.String(stat),
 			},
 		})
+		if q.Default != nil {
+			defaults[label.String()] = *q.Default
+		}
+
 		logrus.WithFields(logrus.Fields{
-			"id":    fmt.Sprintf("m%d", i+1),
-			"label": label.String(),
-			"stat":  stat,
+			"id":      fmt.Sprintf("m%d", i+1),
+			"label":   label.String(),
+			"stat":    stat,
+			"default": q.Default,
 		}).Debug("new metric data query")
 	}
-	return ret, nil
+	return ret, defaults, nil
 }
 
 func interfaceToString(in interface{}) string {

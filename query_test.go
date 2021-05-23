@@ -127,7 +127,7 @@ func TestToMetricDataQuery(t *testing.T) {
 
 	opt := cmpopts.IgnoreUnexported(types.MetricDataQuery{}, types.MetricStat{}, types.Metric{}, types.Dimension{})
 	for _, tc := range testcases {
-		got, err := ToMetricDataQuery(tc.in)
+		got, _, err := ToMetricDataQuery(tc.in)
 		if err != nil {
 			t.Error(err)
 			continue
