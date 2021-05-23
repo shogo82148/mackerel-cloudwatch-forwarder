@@ -165,7 +165,6 @@ func (f *Forwarder) cloudwatch() cloudwatchiface {
 }
 
 type forwardContext struct {
-	context.Context
 	forwarder      *Forwarder
 	mackerel       *MackerelClient
 	start          time.Time
@@ -220,21 +219,32 @@ func (f *Forwarder) forwardMetrics(ctx context.Context, data json.RawMessage) er
 		}).Warn("drop host metrics because of timeout")
 	}
 
+	// truncate to a minute.
+	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html#API_GetMetricData_RequestParameters
+	// > For better performance, specify StartTime and EndTime values
+	// > that align with the value of the metric's Period and sync up with the beginning and end of an hour.
+	start := now.Truncate(time.Minute)
+
+	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/publishingMetrics.html#publishingDataPoints
+	// > When you create a metric, it can take up to 2 minutes before you can retrieve statistics
+	// > for the new metric using the get-metric-statistics command.
+	start = start.Add(-2 * time.Minute)
+	end := start.Add(time.Minute)
+
 	fctx := &forwardContext{
-		Context:        ctx,
 		forwarder:      f,
 		mackerel:       client,
-		start:          now.Add(-3 * time.Minute),
-		end:            now,
+		start:          start,
+		end:            end,
 		serviceMetrics: f.pendingServiceMetrics,
 		hostMetrics:    f.pendingHostMetrics,
 	}
 
-	err = fctx.getMetricsData(query)
+	err = fctx.getMetricsData(ctx, query)
 	// note: do not check error here.
 	// because we need to publish pending metrics.
 
-	fctx.publishMetric()
+	fctx.publishMetric(ctx)
 	f.pendingServiceMetrics = fctx.failedServiceMetrics
 	f.pendingHostMetrics = fctx.failedHostMetrics
 	return err
@@ -320,7 +330,7 @@ func (m *hostMetricsType) Drop(t time.Time) int {
 }
 
 // getMetricsData gets metrics data from CloudWatch Metrics.
-func (fctx *forwardContext) getMetricsData(query []*Query) error {
+func (fctx *forwardContext) getMetricsData(ctx context.Context, query []*Query) error {
 	svc := fctx.forwarder.cloudwatch()
 	metricQuery, err := ToMetricDataQuery(query)
 	if err != nil {
@@ -332,7 +342,7 @@ func (fctx *forwardContext) getMetricsData(query []*Query) error {
 		MetricDataQueries: metricQuery,
 	})
 	for paginator.HasMorePages() {
-		page, err := paginator.NextPage(fctx)
+		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			return err
 		}
@@ -364,7 +374,7 @@ func (fctx *forwardContext) getMetricsData(query []*Query) error {
 	return nil
 }
 
-func (fctx *forwardContext) publishMetric() {
+func (fctx *forwardContext) publishMetric(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	// publush service metrics
@@ -373,7 +383,7 @@ func (fctx *forwardContext) publishMetric() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := fctx.mackerel.PostServiceMetricValues(fctx, service, metrics)
+			err := fctx.mackerel.PostServiceMetricValues(ctx, service, metrics)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"error":   err.Error(),
@@ -401,7 +411,7 @@ func (fctx *forwardContext) publishMetric() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := fctx.mackerel.PostHostMetricValues(fctx, []HostMetricValue(fctx.hostMetrics))
+			err := fctx.mackerel.PostHostMetricValues(ctx, []HostMetricValue(fctx.hostMetrics))
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"error": err.Error(),
