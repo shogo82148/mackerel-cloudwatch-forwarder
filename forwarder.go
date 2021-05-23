@@ -219,11 +219,23 @@ func (f *Forwarder) forwardMetrics(ctx context.Context, data json.RawMessage) er
 		}).Warn("drop host metrics because of timeout")
 	}
 
+	// truncate to a minute.
+	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html#API_GetMetricData_RequestParameters
+	// > For better performance, specify StartTime and EndTime values
+	// > that align with the value of the metric's Period and sync up with the beginning and end of an hour.
+	start := now.Truncate(time.Minute)
+
+	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/publishingMetrics.html#publishingDataPoints
+	// > When you create a metric, it can take up to 2 minutes before you can retrieve statistics
+	// > for the new metric using the get-metric-statistics command.
+	start = start.Add(-2 * time.Minute)
+	end := start.Add(time.Minute)
+
 	fctx := &forwardContext{
 		forwarder:      f,
 		mackerel:       client,
-		start:          now.Add(-3 * time.Minute),
-		end:            now,
+		start:          start,
+		end:            end,
 		serviceMetrics: f.pendingServiceMetrics,
 		hostMetrics:    f.pendingHostMetrics,
 	}
