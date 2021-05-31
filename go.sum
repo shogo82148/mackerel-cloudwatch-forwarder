@@ -42,8 +42,8 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/shogo82148/go-phper-json v0.0.4 h1:l2P8xyVDCcDbHO9f7b6ca2/yHyQqNY1sEN43CJowQa4=
 github.com/shogo82148/go-phper-json v0.0.4/go.mod h1:Ha2Lc9s5q0um9gdUoa9tp4+CY0w9S5DTcC9cAf/8Thw=
-github.com/shogo82148/go-retry v1.0.0 h1:c487Qe+QYUffpUpPxrUN5fGJq6WVHSzGS4N3MNuR2OU=
-github.com/shogo82148/go-retry v1.0.0/go.mod h1:5jiw5yPWW6K+pMyimtNoaQSDD08RMEsJbhDwFrui5rc=
+github.com/shogo82148/go-retry v1.1.0 h1:eNBmDFO0ekhF7GEx8Ie5fUmoqH/O1pSIcdivdBPLMcw=
+github.com/shogo82148/go-retry v1.1.0/go.mod h1:NCS+03WD76BaTewJNwgyj3ukqcwNTodfy1SWHmbLZaU=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
 github.com/sirupsen/logrus v1.8.1 h1:dJKuHgqk1NNQlqoA6BTlM1Wf9DOH3NBjQyu0h9+AZZE=
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
@@ -54,7 +54,6 @@ github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/urfave/cli/v2 v2.2.0/go.mod h1:SE9GqnLQmjVa0iPEY0f1w3ygNIYcIJ0OKPMoW2caLfQ=
 golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 h1:YyJpGZS1sBuBCzLAR1VEpK193GlqGZbnPFnPV/5Rsb4=
 golang.org/x/sys v0.0.0-20191026070338-33540a1f6037/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/xerrors v0.0.0-20190513163551-3ee3066db522/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 h1:E7g+9GITq07hpfrRu66IVDexMakfv52eLZ2CXBWiKr4=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
