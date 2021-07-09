@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: mackerel-cloudwatch-forwarder v0.0.12 forwards metrics in AWS CloudWatch to the Mackerel.
+Description: mackerel-cloudwatch-forwarder v0.0.13 forwards metrics in AWS CloudWatch to the Mackerel.
 
 Metadata:
   AWS::ServerlessRepo::Application:
@@ -12,7 +12,7 @@ Metadata:
     ReadmeUrl: README.md
     Labels: ["mackerelio"]
     HomePageUrl: https://github.com/shogo82148/mackerel-cloudwatch-forwarder
-    SemanticVersion: 0.0.12
+    SemanticVersion: 0.0.13
     SourceCodeUrl: https://github.com/shogo82148/mackerel-cloudwatch-forwarder
 
 Parameters:
