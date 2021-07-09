@@ -348,8 +348,11 @@ func (fctx *forwardContext) getMetricsData(ctx context.Context, query []*Query) 
 			return err
 		}
 		for _, result := range page.MetricDataResults {
-			seen[aws.ToString(result.Label)] = struct{}{}
-			label, err := ParseLabel(aws.ToString(result.Label))
+			rawLabel := aws.ToString(result.Label)
+			if len(result.Values) > 0 {
+				seen[rawLabel] = struct{}{}
+			}
+			label, err := ParseLabel(rawLabel)
 			if err != nil {
 				return err
 			}
