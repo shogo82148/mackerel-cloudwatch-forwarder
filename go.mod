@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.15.11
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.18.5
 	github.com/aws/aws-sdk-go-v2/service/kms v1.17.4
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.27.2
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.27.3
 	github.com/google/go-cmp v0.5.8
 	github.com/shogo82148/go-phper-json v0.0.4
 	github.com/shogo82148/go-retry v1.1.1
