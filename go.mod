@@ -3,7 +3,7 @@ module github.com/shogo82148/mackerel-cloudwatch-forwarder
 go 1.17
 
 require (
-	github.com/aws/aws-lambda-go v1.32.0
+	github.com/aws/aws-lambda-go v1.32.1
 	github.com/aws/aws-sdk-go-v2 v1.16.6
 	github.com/aws/aws-sdk-go-v2/config v1.15.12
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.18.5
@@ -28,5 +28,4 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
