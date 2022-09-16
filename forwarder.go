@@ -100,7 +100,7 @@ func (f *Forwarder) apiKey(ctx context.Context, svcssm ssmiface, svckms kmsiface
 	if f.APIKeyParameter != "" {
 		resp, err := svcssm.GetParameter(ctx, &ssm.GetParameterInput{
 			Name:           aws.String(f.APIKeyParameter),
-			WithDecryption: decrypt,
+			WithDecryption: aws.Bool(decrypt),
 		})
 		if err != nil {
 			return "", err
