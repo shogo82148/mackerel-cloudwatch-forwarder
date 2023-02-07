@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.17.4
 	github.com/aws/aws-sdk-go-v2/config v1.18.11
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.25.2
-	github.com/aws/aws-sdk-go-v2/service/kms v1.20.1
+	github.com/aws/aws-sdk-go-v2/service/kms v1.20.2
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.35.1
 	github.com/google/go-cmp v0.5.9
 	github.com/shogo82148/go-phper-json v0.0.4
