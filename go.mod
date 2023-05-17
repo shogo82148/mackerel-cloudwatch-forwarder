@@ -12,7 +12,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/shogo82148/go-phper-json v0.0.4
 	github.com/shogo82148/go-retry v1.1.1
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.2
 )
 
 require (
