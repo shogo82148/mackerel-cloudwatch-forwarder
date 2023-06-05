@@ -18,8 +18,8 @@ github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.26.0 h1:sSzrsKQULJmPtmu6By4wR
 github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.26.0/go.mod h1:t5mizLPjCYafXoHCXOHJU7z4OvLbY70Echvb1ciBTV4=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.27 h1:0iKliEXAcCa2qVtRs7Ot5hItA2MsufrphbRFlz1Owxo=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.27/go.mod h1:EOwBD4J4S5qYszS5/3DpkejfuK+Z5/1uzICfPaZLtqw=
-github.com/aws/aws-sdk-go-v2/service/kms v1.21.1 h1:Q03Jqh1enA8keCiGZpLetpk58Ll9iGejE5bOErxyGAU=
-github.com/aws/aws-sdk-go-v2/service/kms v1.21.1/go.mod h1:EEfb4gfSphdVpRo5sGf2W3KvJbelYUno5VaXR5MJ3z4=
+github.com/aws/aws-sdk-go-v2/service/kms v1.22.0 h1:WV+lMUfzkW0k2gVci1oKLC1sFGqxZleRl56Df9T3+Vk=
+github.com/aws/aws-sdk-go-v2/service/kms v1.22.0/go.mod h1:EEfb4gfSphdVpRo5sGf2W3KvJbelYUno5VaXR5MJ3z4=
 github.com/aws/aws-sdk-go-v2/service/ssm v1.36.4 h1:3AjvCuRS8OnNVRC/UBagp1Jo2feR94+VAIKO4lz8gOQ=
 github.com/aws/aws-sdk-go-v2/service/ssm v1.36.4/go.mod h1:p6MaesK9061w6NTiFmZpUzEkKUY5blKlwD2zYyErxKA=
 github.com/aws/aws-sdk-go-v2/service/sso v1.12.10 h1:UBQjaMTCKwyUYwiVnUt6toEJwGXsLBI6al083tpjJzY=
