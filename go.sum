@@ -46,8 +46,8 @@ github.com/shogo82148/go-phper-json v0.0.4 h1:l2P8xyVDCcDbHO9f7b6ca2/yHyQqNY1sEN
 github.com/shogo82148/go-phper-json v0.0.4/go.mod h1:Ha2Lc9s5q0um9gdUoa9tp4+CY0w9S5DTcC9cAf/8Thw=
 github.com/shogo82148/go-retry v1.1.1 h1:BfUEVHTNDSjYxoRPC+c/ht5Sy6qdwl+0kFhhubeh4Fo=
 github.com/shogo82148/go-retry v1.1.1/go.mod h1:TPSFDcc2rlx2D/yfhi8BBOlsHhVBjjJoMvxG7iFHUbI=
-github.com/sirupsen/logrus v1.9.2 h1:oxx1eChJGI6Uks2ZC4W1zpLlVgqB8ner4EuQwV4Ik1Y=
-github.com/sirupsen/logrus v1.9.2/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
+github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
+github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.2 h1:4jaiDzPyXQvSd7D0EjG45355tLlV3VOECpq10pLC+8s=
