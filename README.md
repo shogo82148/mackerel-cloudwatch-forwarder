@@ -44,23 +44,25 @@ Example:
       Parameters:
         ParameterName: "/api-keys/api.mackerelio.com/headers/X-Api-Key"
         ForwardSettings: |
-            {
-                {
-                  "service": "your service name on Mackerel",
-                  "name": "metric name on Mackerel",
-                  "metric": [ "Namespace", "MetricName", "Dimension1Name", "Dimension1Value", {} ],
-                  "stat": "Sum"
-                },
-                {
-                  "hostId": "host id",
-                  "name": "metric name on Mackerel",
-                  "metric": [ "Namespace", "MetricName", "Dimension1Name", "Dimension1Value", {} ],
-                  "stat": "Sum"
-                }
-            }   
+            [
+              {
+                  {
+                    "service": "your service name on Mackerel",
+                    "name": "metric name on Mackerel",
+                    "metric": [ "Namespace", "MetricName", "Dimension1Name", "Dimension1Value",   {} ],
+                    "stat": "Sum"
+                  },
+                  {
+                    "hostId": "host id",
+                    "name": "metric name on Mackerel",
+                    "metric": [ "Namespace", "MetricName", "Dimension1Name", "Dimension1Value",   {} ],
+                    "stat": "Sum"
+                  }
+              }
+            ]   
 ```
 
-The ForwardSettings parameter is expressed in JSON.  
+The ForwardSettings parameter is expressed in JSON array.  
   
 The "metric" key within the JSON is equivalent to the "metrics" key in the JSON displayed on the [Source] tab of AWS CloudWatch Metrics (Path: [CloudWatch] > [Metrics] > [${Your Custom Metrics Name}] > [Source]).
 
