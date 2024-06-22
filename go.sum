@@ -45,8 +45,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/shogo82148/go-phper-json v0.0.4 h1:l2P8xyVDCcDbHO9f7b6ca2/yHyQqNY1sEN43CJowQa4=
 github.com/shogo82148/go-phper-json v0.0.4/go.mod h1:Ha2Lc9s5q0um9gdUoa9tp4+CY0w9S5DTcC9cAf/8Thw=
-github.com/shogo82148/go-retry v1.2.0 h1:A/LFdbZKJ+tsT1gF4OrzM4P10FGK7VUExpb07/U03aE=
-github.com/shogo82148/go-retry v1.2.0/go.mod h1:wttfgfwCMQvNqv4kOpqIvDDJeSmwU+AEIpUyG+5Ca6M=
+github.com/shogo82148/go-retry v1.3.0 h1:ilyEYrjWFtFB8gJHXwXVuF9VhxtplQbKRpNq3dsO51Y=
+github.com/shogo82148/go-retry v1.3.0/go.mod h1:wttfgfwCMQvNqv4kOpqIvDDJeSmwU+AEIpUyG+5Ca6M=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
