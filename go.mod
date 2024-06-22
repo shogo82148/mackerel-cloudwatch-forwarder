@@ -1,6 +1,6 @@
 module github.com/shogo82148/mackerel-cloudwatch-forwarder
 
-go 1.17
+go 1.22.4
 
 require (
 	github.com/aws/aws-lambda-go v1.47.0
