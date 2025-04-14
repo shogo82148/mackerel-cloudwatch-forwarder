@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/shogo82148/go-retry"
+	"github.com/shogo82148/go-retry/v2"
 )
 
 var defaultBaseURL *url.URL
