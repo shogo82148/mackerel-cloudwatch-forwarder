@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.56.5
 	github.com/google/go-cmp v0.7.0
 	github.com/shogo82148/go-phper-json v0.0.4
-	github.com/shogo82148/go-retry v1.3.1
+	github.com/shogo82148/go-retry/v2 v2.0.1
 	github.com/sirupsen/logrus v1.9.3
 )
 
