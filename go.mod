@@ -12,7 +12,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/shogo82148/go-phper-json v0.0.4
 	github.com/shogo82148/go-retry v1.3.1
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 )
 
 require (
@@ -28,6 +28,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.7 // indirect
 	github.com/aws/smithy-go v1.22.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
