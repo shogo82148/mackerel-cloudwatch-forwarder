@@ -408,10 +408,7 @@ func (fctx *forwardContext) publishMetric(ctx context.Context) {
 
 	// publush service metrics
 	for service, metrics := range fctx.serviceMetrics {
-		service, metrics := service, metrics
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := fctx.mackerel.PostServiceMetricValues(ctx, service, metrics)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
@@ -432,14 +429,12 @@ func (fctx *forwardContext) publishMetric(ctx context.Context) {
 					"count":   len(metrics),
 				}).Info("succeed to post service metrics")
 			}
-		}()
+		})
 	}
 
 	// publish host metrics
 	if len(fctx.hostMetrics) > 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := fctx.mackerel.PostHostMetricValues(ctx, []HostMetricValue(fctx.hostMetrics))
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
@@ -455,7 +450,7 @@ func (fctx *forwardContext) publishMetric(ctx context.Context) {
 					"count": len(fctx.hostMetrics),
 				}).Info("succeed to post host metrics")
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
