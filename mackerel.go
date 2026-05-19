@@ -100,7 +100,7 @@ func (c *MackerelClient) newRequest(ctx context.Context, method, path string, bo
 	return req, nil
 }
 
-func (c *MackerelClient) postJSON(ctx context.Context, path string, payload interface{}) error {
+func (c *MackerelClient) postJSON(ctx context.Context, path string, payload any) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 

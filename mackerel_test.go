@@ -16,7 +16,7 @@ import (
 )
 
 func TestPostServiceMetricValues(t *testing.T) {
-	ch := make(chan interface{}, 1)
+	ch := make(chan any, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("unexpected method: want %s, got %s", http.MethodPost, r.Method)
@@ -28,7 +28,7 @@ func TestPostServiceMetricValues(t *testing.T) {
 			t.Errorf("unexpected path: want %q, got %q", want, got)
 		}
 
-		var body interface{}
+		var body any
 		dec := json.NewDecoder(r.Body)
 		if err := dec.Decode(&body); err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -56,14 +56,14 @@ func TestPostServiceMetricValues(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var got interface{}
+	var got any
 	select {
 	case got = <-ch:
 	default:
 		t.Fatal("api is not called")
 	}
-	want := []interface{}{
-		map[string]interface{}{
+	want := []any{
+		map[string]any{
 			"name":  "metric.sum",
 			"time":  1234567890.0,
 			"value": 123.0,
@@ -75,7 +75,7 @@ func TestPostServiceMetricValues(t *testing.T) {
 }
 
 func TestPostHostMetricValues(t *testing.T) {
-	ch := make(chan interface{}, 1)
+	ch := make(chan any, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("unexpected method: want %s, got %s", http.MethodPost, r.Method)
@@ -87,7 +87,7 @@ func TestPostHostMetricValues(t *testing.T) {
 			t.Errorf("unexpected path: want %q, got %q", want, got)
 		}
 
-		var body interface{}
+		var body any
 		dec := json.NewDecoder(r.Body)
 		if err := dec.Decode(&body); err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -116,14 +116,14 @@ func TestPostHostMetricValues(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var got interface{}
+	var got any
 	select {
 	case got = <-ch:
 	default:
 		t.Fatal("api is not called")
 	}
-	want := []interface{}{
-		map[string]interface{}{
+	want := []any{
+		map[string]any{
 			"hostId": "host-abc",
 			"name":   "metric.sum",
 			"time":   1234567890.0,

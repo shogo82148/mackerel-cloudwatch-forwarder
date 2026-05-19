@@ -20,14 +20,14 @@ func TestToMetricDataQuery(t *testing.T) {
 				{
 					Service: "foo-bar",
 					Name:    "metric.sum",
-					Metric:  []interface{}{"Namespace", "MetricName"},
+					Metric:  []any{"Namespace", "MetricName"},
 					Stat:    "Sum",
 				},
 				// shorthand
 				{
 					Service: ".",
 					Name:    "metric.average",
-					Metric:  []interface{}{".", "."},
+					Metric:  []any{".", "."},
 					Stat:    "Average",
 				},
 			},
@@ -65,14 +65,14 @@ func TestToMetricDataQuery(t *testing.T) {
 				{
 					Host:   "host-foo-bar",
 					Name:   "metric.sum",
-					Metric: []interface{}{"Namespace", "MetricName", "Host-Dimension1", "foo", "Host-Dimension2", "bar"},
+					Metric: []any{"Namespace", "MetricName", "Host-Dimension1", "foo", "Host-Dimension2", "bar"},
 					Stat:   "Sum",
 				},
 				// shorthand
 				{
 					Host:   "host-hoge-fuga",
 					Name:   "metric.sum",
-					Metric: []interface{}{".", ".", ".", "hoge", ".", "fuga"},
+					Metric: []any{".", ".", ".", "hoge", ".", "fuga"},
 					Stat:   "Sum",
 				},
 			},

@@ -10,12 +10,12 @@ import (
 
 // Query is a query for AWS CloudWatch.
 type Query struct {
-	Service string        `json:"service,omitempty"`
-	Host    string        `json:"host,omitempty"`
-	Name    string        `json:"name,omitempty"`
-	Metric  []interface{} `json:"metric,omitempty"`
-	Stat    string        `json:"stat,omitempty"`
-	Default *float64      `json:"default,omitempty"`
+	Service string   `json:"service,omitempty"`
+	Host    string   `json:"host,omitempty"`
+	Name    string   `json:"name,omitempty"`
+	Metric  []any    `json:"metric,omitempty"`
+	Stat    string   `json:"stat,omitempty"`
+	Default *float64 `json:"default,omitempty"`
 }
 
 // ToMetricDataQuery converts the query to (cloudwatch/types).MetricDataQuery.
@@ -99,7 +99,7 @@ func ToMetricDataQuery(query []*Query) ([]types.MetricDataQuery, map[string]floa
 	return ret, defaults, nil
 }
 
-func interfaceToString(in interface{}) string {
+func interfaceToString(in any) string {
 	if s, ok := in.(string); ok {
 		return s
 	}
