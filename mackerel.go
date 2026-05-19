@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/shogo82148/go-retry"
+	"github.com/shogo82148/go-retry/v2"
 )
 
 var defaultBaseURL *url.URL
@@ -149,10 +149,14 @@ func handleError(resp *http.Response) error {
 	if err != nil {
 		return err
 	}
-	return Error{
+	e := Error{
 		StatusCode: resp.StatusCode,
 		Message:    string(b),
 	}
+	if e.Temporary() {
+		return retry.MarkTemporary(e)
+	}
+	return retry.MarkPermanent(e)
 }
 
 // PostServiceMetricValues posts service metrics.
