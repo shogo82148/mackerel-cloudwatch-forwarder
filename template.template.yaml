@@ -38,7 +38,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: mackerel-cloudwatch-forwarder
-      Runtime: provided.al2
+      Runtime: provided.al2023
       Timeout: 60
       CodeUri: dist.zip
       Policies:
