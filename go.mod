@@ -6,9 +6,9 @@ require (
 	github.com/aws/aws-lambda-go v1.55.1
 	github.com/aws/aws-sdk-go-v2 v1.48.0
 	github.com/aws/aws-sdk-go-v2/config v1.33.18
-	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.75.7
+	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.76.0
 	github.com/aws/aws-sdk-go-v2/service/kms v1.62.6
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.82.1
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.83.0
 	github.com/google/go-cmp v0.7.0
 	github.com/shogo82148/go-phper-json v0.0.4
 	github.com/shogo82148/go-retry/v2 v2.0.2
